@@ -5,7 +5,7 @@ from .config import get_reservations
 
 
 def get_system_infos(
-    log, custom_config, user_hpc_accounts, reservations_list, maintenance_list
+    log, custom_config, user_hpc_accounts, reservations_dict, maintenance_list
 ):
     s = "^([^\,]+),([^\,]+),([^\,]+),([^\,]+)$"
     c = re.compile(s)
@@ -99,14 +99,14 @@ def get_system_infos(
                     partition: ["None"]
                     + sorted(
                         [
-                            x[0]
-                            for x in reservations_list.get(system, [])
+                            x
+                            for x in reservations_dict.get(system, [])
                             if (
                                 (
-                                    project in x[12].split(",")
-                                    or account in x[11].split(",")
+                                    project in x.get("Accounts", "").split(",")
+                                    or account in x.get("Users", "").split(",")
                                 )
-                                and ((not x[8]) or partition in x[8].split(","))
+                                and ((not x.get("PartitionName", "")) or partition in x.get("PartitionName", "").split(","))
                             )
                         ]
                     )
@@ -134,16 +134,12 @@ async def get_options_form(spawner, service, service_info):
 
     maintenance_list = get_maintenance_list()
     reservations_dict = get_reservations()
-    reservations_list = {
-        system: list(x.split(";") for x in reservations_dict.get(system, []))
-        for system in reservations_dict.keys()
-    }
-
+    
     systems, accounts, projects, partitions, reservations = get_system_infos(
         spawner.log,
         custom_config,
         user_hpc_accounts,
-        reservations_list,
+        reservations_dict,
         maintenance_list,
     )
 

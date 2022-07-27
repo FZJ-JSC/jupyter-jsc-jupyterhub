@@ -29,7 +29,12 @@ class TwoFAAPIHandler(APIHandler):
         )
         if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
             metrics_logger = logging.getLogger("Metrics")
-            metrics_logger.info("action=request2fa;userid={userid}".format(userid=user.id))
+            metrics_extras = {
+                "action": "request2fa",
+                "userid": user.id
+            }
+            metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']}")
+            self.log.info("request2fa", extra=metrics_extras)
         send2fa_config_path = os.environ.get("SEND2FA_CONFIG_PATH", None)
         if not send2fa_config_path:
             self.log.error("Please define $SEND2FA_CONFIG_PATH environment variable.")
@@ -100,7 +105,12 @@ class TwoFAAPIHandler(APIHandler):
                 )
                 if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
                     metrics_logger = logging.getLogger("Metrics")
-                    metrics_logger.info("action=delete2fa;userid={userid}".format(userid=user.id))
+                    metrics_extras = {
+                        "action": "delete2fa",
+                        "userid": user.id
+                    }
+                    metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']}")
+                    self.log.info("delete2fa", extra=metrics_extras)
 
                 self.log.debug(
                     "uuidcode={} - Delete user from group via ssh to Unity VM".format(
@@ -142,7 +152,13 @@ class TwoFACodeHandler(BaseHandler):
         )
         if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
             metrics_logger = logging.getLogger("Metrics")
-            metrics_logger.info("action=activate2fa;userid={userid}".format(userid=user.id))
+            metrics_extras = {
+                "action": "activate2fa",
+                "userid": user.id
+            }
+            metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']}")
+            self.log.info("activate2fa", extra=metrics_extras)
+            
         result = TwoFAORM.validate_token(TwoFAORM, self.db, user.id, code)
         if result:
             self.db.delete(result)

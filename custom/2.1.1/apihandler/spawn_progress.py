@@ -1,5 +1,7 @@
 import datetime
 import json
+import os
+import logging
 
 from custom_utils.backend_services import BackendException
 from custom_utils.backend_services import drf_request
@@ -9,8 +11,7 @@ from jupyterhub.scopes import needs_scope
 from tornado import web
 from tornado.httpclient import HTTPRequest
 
-user_cancel_message = "<details><summary>Start cancelled by user.</summary>You clicked the cancel button.</details>"
-
+user_cancel_message = "Start cancelled by user.</summary>You clicked the cancel button.</details>"
 
 class SpawnProgressUpdateAPIHandler(APIHandler):
     @needs_scope("access:servers")
@@ -48,7 +49,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                 event["html_message"] = f"{now}: {event['html_message']}"
 
         if event and event.get("failed", False):
-            if event.get("html_message", "") == user_cancel_message:
+            if event.get("html_message", "").endswith(user_cancel_message):
                 self.log.debug(
                     "APICall: SpawnUpdate",
                     extra={
@@ -59,6 +60,24 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                         "event": event,
                     },
                 )
+                if os.environ.get(
+                    "LOGGING_METRICS_ENABLED", "false"
+                ).lower() in ["true", "1"]:
+                    options = ";".join(
+                        [
+                            "%s=%s" % (k, v)
+                            for k, v in spawner.user_options.items()
+                        ]
+                    )
+                    metrics_logger = logging.getLogger("Metrics")
+                    metrics_extras = {
+                        "action": "usercancel",
+                        "userid": user.id,
+                        "servername": spawner.name,
+                        "options": spawner.user_options
+                    }
+                    metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
+                    self.log.info("usercancel", extra=metrics_extras)
             else:
                 self.log.debug(
                     "APICall: SpawnUpdate",

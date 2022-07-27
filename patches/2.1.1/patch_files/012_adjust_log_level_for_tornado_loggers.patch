@@ -5,8 +5,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  
          # disable curl debug, which is TOO MUCH
          logging.getLogger('tornado.curl_httpclient').setLevel(
--            max(self.log_level, logging.WARNING)
-+            max(self.log_level, logging.INFO)
+-            max(self.log_level, logging.INFO)
++            max(self.log_level, logging.WARNING)
          )
  
          for log in (app_log, access_log, gen_log):

@@ -1,5 +1,6 @@
 import copy
 import json
+import logging
 import os
 import re
 import time
@@ -60,6 +61,17 @@ class CustomLogoutHandler(OAuthLogoutHandler):
         if user.authenticator.enable_auth_state:
             tokens = {}
             auth_state = await user.get_auth_state()
+            if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
+                metrics_logger = logging.getLogger("Metrics")
+                metrics_extras = {
+                    "action": "logout",
+                    "userid": user.id,
+                    "authenticator": auth_state.get('oauth_user', {}).get('used_authenticator_attr','unknown'),
+                    "stopall": stop_all,
+                    "all_devices": all_devices
+                }
+                metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};authenticator={metrics_extras['authenticator']};stopall={metrics_extras['stopall']};all_devices={metrics_extras['all_devices']}")
+                self.log.info("logout", extra=metrics_extras)
             access_token = auth_state.get("access_token", None)
             if access_token:
                 tokens["access_token"] = access_token

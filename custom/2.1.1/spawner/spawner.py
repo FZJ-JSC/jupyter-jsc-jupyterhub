@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import json
+import logging
 import os
 import random
 import re
@@ -306,6 +307,22 @@ class BackendSpawner(Spawner):
             validate_cert=req_prop["validate_cert"],
             ca_certs=req_prop["ca_certs"],
         )
+
+        if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
+            "true",
+            "1",
+        ]:
+            options = ';'.join(['%s=%s' % (k, v) for k, v in self.user_options.items()])
+            metrics_logger = logging.getLogger("Metrics")            
+            metrics_extras = {
+                "action": "start",
+                "userid": self.user.id,
+                "servername": self.name,
+                "options": self.user_options
+            }
+            metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
+            self.log.info("start", extra=metrics_extras)
+
         try:
             resp_json = await drf_request(
                 req,
@@ -443,6 +460,7 @@ class BackendSpawner(Spawner):
             validate_cert=req_prop["validate_cert"],
             ca_certs=req_prop["ca_certs"],
         )
+        
         await drf_request(
             req,
             self.log,

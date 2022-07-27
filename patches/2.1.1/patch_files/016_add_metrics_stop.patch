@@ -1,0 +1,23 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-07-27 10:36:06.450347865 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-07-27 11:15:49.530330123 +0200
+@@ -1196,6 +1196,19 @@
+                         'servername': server_name,
+                     },
+                 )
++                if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
++                    "true",
++                    "1",
++                ]:
++                    options = ';'.join(
++                        ['%s=%s' % (k, v) for k, v in spawner.user_options.items()]
++                    )
++                    metrics_logger = logging.getLogger("Metrics")
++                    metrics_logger.info(
++                        "action=stop;userid={userid};servername={server_name};{options}".format(
++                            userid=user.id, server_name=server_name, options=options
++                        )
++                    )
+             except:
+                 PROXY_DELETE_DURATION_SECONDS.labels(
+                     status=ProxyDeleteStatus.failure

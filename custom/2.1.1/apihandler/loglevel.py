@@ -4,6 +4,7 @@ import os
 
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.scopes import needs_scope
+from uuid import uuid4
 from tornado.httpclient import HTTPRequest
 
 from custom_utils.backend_services import drf_request
@@ -13,8 +14,6 @@ from logs import remove_logging_handler
 from logs.extra_handlers import default_configurations
 from logs.utils import supported_handler_classes
 from logs.utils import supported_formatter_classes
-
-
 
 
 def get_config():
@@ -135,7 +134,7 @@ class JHubLogLevelAPIHandler(APIHandler):
             return
         # get default config and overwrite as needed
         handler_config = copy.deepcopy(default_configurations[handler])
-        for key, value in data.get("configuration"):
+        for key, value in data.get("configuration").items():
             handler_config[key] = value
         create_logging_handler(current_config, handler, **handler_config)
         self.log.info(f"Created {handler} log handler", extra={"data": data})
@@ -156,7 +155,7 @@ class JHubLogLevelAPIHandler(APIHandler):
             return
         # get current config and overwrite as needed
         handler_config = copy.deepcopy(current_config[handler])
-        for key, value in data.get("configuration"):
+        for key, value in data.get("configuration").items():
             handler_config[key] = value
         remove_logging_handler(current_config, handler)
         create_logging_handler(current_config, handler, **handler_config)
@@ -178,13 +177,13 @@ class DRFServiceLogLevelAPIHandler(APIHandler):
     async def _drf_request(self, service, handler="", method="GET", body=None):
         custom_config = self.authenticator.custom_config
         req_prop = drf_request_properties(
-            service, custom_config, self.log, None
+            service, custom_config, self.log, uuid4().hex
         )
         log_url = req_prop.get("urls", {}).get("logs", "None")
         if handler:
             log_url = log_url + handler + "/"
         req = HTTPRequest(
-            log_url ,
+            log_url,
             method=method,
             headers=req_prop["headers"],
             request_timeout=req_prop["request_timeout"],

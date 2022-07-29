@@ -6,14 +6,14 @@ from custom_utils import check_formdata_keys
 
 class SpawnUpdateOptionsAPIHandler(APIHandler):
     @needs_scope("access:servers")
-    async def post(self, username, server_name=''):
-        user = self.find_user(username)
+    async def post(self, user_name, server_name=''):
+        user = self.find_user(user_name)
         if user is None:
             # no such user
-            self.log.error(f"APICall: SpawnOptionsUpdate - No user {username} found",
+            self.log.error(f"APICall: SpawnOptionsUpdate - No user {user_name} found",
                 extra={
                     "user": user,
-                    "log_name": f"{username}:{server_name}"
+                    "log_name": f"{user_name}:{server_name}"
                 }
             )
             raise web.HTTPError(404)
@@ -21,11 +21,11 @@ class SpawnUpdateOptionsAPIHandler(APIHandler):
 
         if server_name not in orm_user.orm_spawners:
             # user has no such server
-            self.log.error(f"APICall: SpawnOptionsUpdate - No spawner {server_name} for user {username} found",
+            self.log.error(f"APICall: SpawnOptionsUpdate - No spawner {server_name} for user {user_name} found",
                 extra={
                     "user": user,
                     "spawner": server_name,
-                    "log_name": f"{username}:{server_name}"
+                    "log_name": f"{user_name}:{server_name}"
                 }
             )
             raise web.HTTPError(404)
@@ -41,7 +41,7 @@ class SpawnUpdateOptionsAPIHandler(APIHandler):
                 extra={
                     "user": user,
                     "error": err,
-                    "log_name": f"{username}:{server_name}"
+                    "log_name": f"{user_name}:{server_name}"
                 }
             )
             self.set_status(400)

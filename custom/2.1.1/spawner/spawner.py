@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import json
+import logging
 import os
 import random
 import re
@@ -272,7 +273,8 @@ class BackendSpawner(Spawner):
         start_event = {
             "failed": False,
             "progress": 10,
-            "html_message": f"<details><summary>{now}: Start service. Start ID: {self.start_id}</summary>&nbsp;&nbsp;Options:<br>{json.dumps(user_options, indent=2)}</details>",
+            "html_message": f"<details><summary>{now}: Sending request to backend service to start your service on {user_options['system']}.</summary>\
+                &nbsp;&nbsp;Start ID: {self.start_id}<br>&nbsp;&nbsp;Options:<br><pre>{json.dumps(user_options, indent=2)}</pre></details>",
         }
         self.ready_event[
             "html_message"
@@ -305,6 +307,22 @@ class BackendSpawner(Spawner):
             validate_cert=req_prop["validate_cert"],
             ca_certs=req_prop["ca_certs"],
         )
+
+        if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
+            "true",
+            "1",
+        ]:
+            options = ';'.join(['%s=%s' % (k, v) for k, v in self.user_options.items()])
+            metrics_logger = logging.getLogger("Metrics")            
+            metrics_extras = {
+                "action": "start",
+                "userid": self.user.id,
+                "servername": self.name,
+                "options": self.user_options
+            }
+            metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
+            self.log.info("start", extra=metrics_extras)
+
         try:
             resp_json = await drf_request(
                 req,
@@ -344,10 +362,14 @@ class BackendSpawner(Spawner):
             extra={"uuidcode": self.name},
         )
         now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+        if self.user.authenticator.custom_config.get("systems", {}).get(user_options["system"], {}).get("drf-service", "") == "unicoremgr":
+            submit_message = f"<details><summary>{now}: Waiting for UNICORE job to run...</summary>You will receive further information about the service status from the UNICORE job.</details>"
+        else:
+            submit_message = f"<details><summary>{now}: Waiting for Kubernetes container to start...</summary>You will receive further information about the service status from the container.</details>"
         submitted_event = {
             "failed": False,
             "progress": 30,
-            "html_message": f"<details><summary>{now}: Request submitted to Jupyter-JSC backend</summary></details>",
+            "html_message": submit_message,
         }
         self.latest_events.append(submitted_event)
         self.log.info(
@@ -438,6 +460,7 @@ class BackendSpawner(Spawner):
             validate_cert=req_prop["validate_cert"],
             ca_certs=req_prop["ca_certs"],
         )
+        
         await drf_request(
             req,
             self.log,

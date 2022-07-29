@@ -9,9 +9,9 @@ class SpawnNotificationAPIHandler(SpawnProgressAPIHandler):
     """EventStream handler for active spawns"""
 
     @needs_scope("read:servers")
-    async def get(self, username):
+    async def get(self, user_name):
         self.set_header("Cache-Control", "no-cache")
-        user = self.find_user(username)
+        user = self.find_user(user_name)
         if user is None:
             # no such user
             raise web.HTTPError(404)
@@ -34,9 +34,9 @@ class SpawnStopNotificationAPIHandler(SpawnProgressAPIHandler):
     """EventStream handler for stopped servers"""
 
     @needs_scope("read:servers")
-    async def get(self, username):
+    async def get(self, user_name):
         self.set_header("Cache-Control", "no-cache")
-        user = self.find_user(username)
+        user = self.find_user(user_name)
         if user is None:
             # no such user
             raise web.HTTPError(404)

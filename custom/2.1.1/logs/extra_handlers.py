@@ -5,8 +5,9 @@ import os
 from .utils import ExtraFormatter, SafeToCopyFileHandler
 from .utils import create_logging_handler
 
+logger_name = os.environ.get("LOGGER_NAME", "JupyterHub")
 
-log = logging.getLogger('JupyterHub')
+log = logging.getLogger(logger_name)
 
 
 def create_extra_handlers():

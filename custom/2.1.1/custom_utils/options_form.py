@@ -13,6 +13,9 @@ def get_system_infos(
     def regroup(x):
         groups_ = list(c.match(x).groups())
         sys = custom_config.get("map_systems").get(groups_[1])
+        if sys not in custom_config.get("systems", {}).keys():
+            # If system is not in systems, we don't need these accounts
+            return []
         if not sys:
             log.error(f"No system defined in custom config system map for {groups_[1]}")
         partition = custom_config.get("map_partitions").get(groups_[1])
@@ -29,7 +32,8 @@ def get_system_infos(
         ]
         return groups
 
-    user_hpc_list = [regroup(x) for x in user_hpc_accounts]
+    user_hpc_list_incl_empty = [regroup(x) for x in user_hpc_accounts]
+    user_hpc_list = [x for x in user_hpc_list_incl_empty if x]
 
     systems_config = custom_config.get("systems")
     # Sort UNICORE systems first
@@ -108,7 +112,8 @@ def get_system_infos(
                                 )
                                 and ((not x.get("PartitionName", "")) or partition in x.get("PartitionName", "").split(","))
                             )
-                        ]
+                        ],
+                        key=lambda x: x['ReservationName']
                     )
                     for partition in partitions[system][account][project]
                 }
@@ -145,6 +150,15 @@ async def get_options_form(spawner, service, service_info):
 
     def in_both_lists(list1, list2):
         return list(set(list1).intersection(set(list2)))
+
+    # Need this to manually create set of list if the list contains a dict 
+    # since all elements of a set must be hashable and a dict is not
+    def create_set(list):
+        unique_list = []
+        for entry in list:
+            if entry not in unique_list:
+                unique_list.append(entry)
+        return unique_list
 
     required_partitions = {}
     options = {}
@@ -252,15 +266,15 @@ async def get_options_form(spawner, service, service_info):
                                 "reservations",
                                 reservations[system][account][project][partition],
                             )
-                        reservations_used = in_both_lists(
-                            reservations[system][account][project][partition],
-                            allowed_lists_reservations,
-                        )
+                        reservations_used = [
+                            value for value in 
+                            create_set(reservations[system][account][project][partition]) 
+                            if value in create_set(allowed_lists_reservations)]
                         if (
                             "reservations" in replace_allowed_lists
                             and len(reservations_used) == 0
                         ):
-                            # Dashboards expects specific reservations which we don"t have
+                            # Dashboards expects specific reservations which we don't have
                             continue
 
                         if option not in options.keys():
@@ -398,7 +412,7 @@ async def get_options_form(spawner, service, service_info):
 
     return {
         "dropdown_lists": dropdown_lists,
-        "reservations": reservations_list,
+        "reservations": reservations_dict,
         "resources": resources_replaced,
         "maintenance": maintenance_list,
     }

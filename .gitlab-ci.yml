@@ -23,7 +23,7 @@ workflow:
       variables:
         BUILD_DEVEL: "False"
         RUN_UNIT_TESTS: "True"
-        BUILD_COMMIT_SHORT: "True"
+        BUILD_COMMIT_SHORT: "False"
         RUN_FUNCTIONAL_TESTS: "True"
         LATEST_TAG: "latest"
     - when: never
@@ -59,7 +59,6 @@ build-devel:
     - if: $BUILD_DEVEL == "True"
 
 build-tag:
-  when: manual
   stage: build-tag
   image:
     name: gcr.io/kaniko-project/executor:debug

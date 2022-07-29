@@ -1,0 +1,87 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-07-25 15:53:25.989693755 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-07-27 10:28:53.640351087 +0200
+@@ -4,6 +4,8 @@
+ import asyncio
+ import copy
+ import json
++import logging
++import os
+ from datetime import datetime
+ from datetime import timedelta
+ from datetime import timezone
+@@ -797,6 +799,19 @@
+                 self.log.warning(
+                     "Server %s didn't start for unknown reason", spawner._log_name
+                 )
++                if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
++                    "true",
++                    "1",
++                ]:
++                    options = ";".join(
++                        ["%s=%s" % (k, v) for k, v in spawner.user_options.items()]
++                    )
++                    metrics_logger = logging.getLogger("Metrics")
++                    metrics_logger.info(
++                        "action=failed;userid={userid};servername={server_name};{options}".format(
++                            userid=user.id, server_name=spawner.name, options=options
++                        )
++                    )
+             spawner.latest_events.append(failed_event)
+             await self.send_event(failed_event)
+ 
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-07-25 15:53:25.989693755 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-07-27 10:35:05.500348319 +0200
+@@ -4,6 +4,7 @@
+ import asyncio
+ import functools
+ import json
++import logging
+ import math
+ import os
+ import random
+@@ -794,6 +795,20 @@
+             user = await self.auth_to_user(authenticated)
+             self.set_login_cookie(user)
+             self.statsd.incr('login.success')
++            if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
++                "true",
++                "1",
++            ]:
++                auth_state = await user.get_auth_state()
++                metrics_logger = logging.getLogger("Metrics")
++                metrics_logger.info(
++                    "action=login;userid={userid};authenticator={authenticator}".format(
++                        userid=user.id,
++                        authenticator=auth_state.get('oauth_user', {}).get(
++                            'used_authenticator_attr', 'unknown'
++                        ),
++                    )
++                )
+             self.statsd.timing('login.authenticate.success', auth_timer.ms)
+             self.log.info("User logged in: %s", user.name)
+             user._auth_refreshed = time.monotonic()
+@@ -946,6 +961,22 @@
+                 "User %s took %.3f seconds to start", user_server_name, toc - tic
+             )
+             self.statsd.timing('spawner.success', (toc - tic) * 1000)
++            if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
++                "true",
++                "1",
++            ]:
++                options = ';'.join(
++                    ['%s=%s' % (k, v) for k, v in spawner.user_options.items()]
++                )
++                metrics_logger = logging.getLogger("Metrics")
++                metrics_logger.info(
++                    "action=successful;userid={userid};servername={server_name};duration={duration};{options}".format(
++                        userid=user.id,
++                        server_name=server_name,
++                        duration=toc - tic,
++                        options=options,
++                    )
++                )
+             SERVER_SPAWN_DURATION_SECONDS.labels(
+                 status=ServerSpawnStatus.success
+             ).observe(time.perf_counter() - spawn_start_time)

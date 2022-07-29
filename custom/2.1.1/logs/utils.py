@@ -7,6 +7,7 @@ import sys
 
 from jsonformatter import JsonFormatter
 
+logger_name = os.environ.get("LOGGER_NAME", "JupyterHub")
 
 class SafeToCopyFileHandler(logging.FileHandler):
     def __init__(self, filename):
@@ -120,7 +121,7 @@ def create_logging_handler(config, handler_name, **configuration):
     handler.name = handler_name
     handler.setLevel(level)
     handler.setFormatter(formatter)
-    logger = logging.getLogger('JupyterHub')
+    logger = logging.getLogger(logger_name)
     logger.addHandler(handler)
 
     current_handler_config = {}
@@ -134,12 +135,12 @@ def create_logging_handler(config, handler_name, **configuration):
     if "filename" in configuration_copy:
         configuration_copy["file_name"] = configuration_copy["filename"]
         del configuration_copy["filename"]
-    log = logging.getLogger('JupyterHub')
+    log = logging.getLogger(logger_name)
     log.debug(f"Logging handler added ({handler_name})", extra=configuration_copy)
 
 
 def remove_logging_handler(config, handler_name):
-    logger = logging.getLogger('JupyterHub')
+    logger = logging.getLogger(logger_name)
     logger_handlers = logger.handlers
     logger.handlers = [x for x in logger_handlers if x.name != handler_name]
 

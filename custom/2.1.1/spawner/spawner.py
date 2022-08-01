@@ -420,6 +420,7 @@ class BackendSpawner(Spawner):
                 self.log.warning("Unexpected error", exc_info=True)
                 return None
         except Exception:
+            self.log.warning("Unexpected error", exc_info=True)
             return None
         if not resp_json.get("running", True):
             if self._spawn_pending:

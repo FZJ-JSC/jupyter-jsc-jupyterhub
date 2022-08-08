@@ -20,11 +20,11 @@ class TwoFAAPIHandler(APIHandler):
     @web.authenticated
     async def post(self):
         user = self.current_user
-
+        username = user.name.replace("_at_", "@")
         uuidcode = uuid.uuid4().hex
         self.log.info(
             "uuidcode={} - action=request2fa - {} will receive an email with a generated code".format(
-                uuidcode, user.name
+                uuidcode, username
             )
         )
         if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
@@ -88,19 +88,20 @@ class TwoFAAPIHandler(APIHandler):
         self.db.commit()
 
         url = "https://" + url_path_join(self.request.host, self.hub.base_url, "/")
-        send_user_mail(user.name, code, unit, str(value), url)
+        send_user_mail(username, code, unit, str(value), url)
         self.set_header("Content-Type", "text/plain")
         self.set_status(200)
 
     @web.authenticated
     async def delete(self):
         user = self.current_user
+        username = user.name.replace("_at_", "@")
         if user:
             try:
                 uuidcode = uuid.uuid4().hex
                 self.log.info(
                     "uuidcode={} - action=delete2fa - Remove User from 2FA optional group: {}".format(
-                        uuidcode, user.name
+                        uuidcode, username
                     )
                 )
                 if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
@@ -117,12 +118,12 @@ class TwoFAAPIHandler(APIHandler):
                         uuidcode
                     )
                 )
-                delete_user_2fa(user.name)
+                delete_user_2fa(username)
 
                 self.log.debug(
                     "uuidcode={} - Send user a confirmation mail".format(uuidcode)
                 )
-                send_user_mail_delete(user.name)
+                send_user_mail_delete(username)
 
                 self.set_header("Content-Type", "text/plain")
                 self.set_status(204)
@@ -147,8 +148,9 @@ class TwoFACodeHandler(BaseHandler):
     async def get(self, code):
         uuidcode = uuid.uuid4().hex
         user = self.current_user
+        username = user.name.replace("_at_", "@")
         self.log.info(
-            "uuidcode={} - action=activate2fa - user={}".format(uuidcode, user.name)
+            "uuidcode={} - action=activate2fa - user={}".format(uuidcode, username)
         )
         if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
             metrics_logger = logging.getLogger("Metrics")
@@ -171,7 +173,7 @@ class TwoFACodeHandler(BaseHandler):
                     self.log.debug(
                         "uuidcode={} - Add user to 2FA group in unity".format(uuidcode)
                     )
-                    add_user_2fa(user.name)
+                    add_user_2fa(username)
                     code_success = True
                     code_header = "2FA activation successful"
                     code_text = "You'll be able to add a second factor the next time you log in."

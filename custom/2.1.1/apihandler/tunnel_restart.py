@@ -49,7 +49,7 @@ class ForwardTunnelRestartAPIHandler(APIHandler):
                 raise_exception=True,
             )
         except BackendException as e:
-            self.set_status(400)
+            self.set_status(e.code)
             self.write(e.error_detail)
             return
         except:

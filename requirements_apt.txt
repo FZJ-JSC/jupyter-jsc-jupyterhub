@@ -7,3 +7,4 @@ python3-pycurl
 python3-m2crypto
 nodejs
 npm
+openssh-client

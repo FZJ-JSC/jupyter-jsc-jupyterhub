@@ -258,7 +258,7 @@ class BackendSpawner(Spawner):
                 "html_message": jupyterhub_html_message,
             }
             self.latest_events.append(failed_event)
-            raise BackendException(error, detailed_error, jupyterhub_html_message)
+            raise BackendException(error, detailed_error, jupyterhub_html_message, 400)
 
         self.log.info(
             "Spawn submit ... ",
@@ -414,12 +414,13 @@ class BackendSpawner(Spawner):
                 raise_exception=True,
             )
         except HTTPClientError as e:
-            if e.code == 404:
+            if getattr(e, 'code', 500) == 404:
                 resp_json = {"running": False}
             else:
                 self.log.warning("Unexpected error", exc_info=True)
                 return None
         except Exception:
+            self.log.warning("Unexpected error", exc_info=True)
             return None
         if not resp_json.get("running", True):
             if self._spawn_pending:

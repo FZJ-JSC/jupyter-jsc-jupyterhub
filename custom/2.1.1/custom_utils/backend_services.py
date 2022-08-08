@@ -11,11 +11,13 @@ class BackendException(Exception):
     error = "Unexpected error."
     error_detail = ""
     jupyterhub_html_message = ""
+    code = 0
 
-    def __init__(self, error, error_detail="", jupyterhub_html_message=""):
+    def __init__(self, error, error_detail="", jupyterhub_html_message="", code=500):
         self.error = error
         self.error_detail = error_detail
         self.jupyterhub_html_message = jupyterhub_html_message
+        self.code = code
         super().__init__(f"{error} --- {error_detail}")
 
 
@@ -78,7 +80,7 @@ async def drf_request(
         resp = await auth_fetch(req, parse_json=parse_json)
         return resp
     except Exception as e:
-        if e.code == 404:
+        if getattr(e, 'code', 500) == 404:
             if raise_exception:
                 raise e
             else:
@@ -114,5 +116,5 @@ async def drf_request(
             jupyterhub_html_message = (
                 f"<details><summary>{now}: {error}</summary>{error_detail}</details>"
             )
-            raise BackendException(error, error_detail, jupyterhub_html_message)
+            raise BackendException(error, error_detail, jupyterhub_html_message, getattr(e, 'code', 500))
     return {}

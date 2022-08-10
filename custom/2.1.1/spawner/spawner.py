@@ -261,12 +261,15 @@ class BackendSpawner(Spawner):
             raise BackendException(error, detailed_error, jupyterhub_html_message, 400)
 
         self.log.info(
-            "Spawn submit ... ",
+            "Spawn submit ...",
             extra={
                 "uuidcode": self.name,
+                "username": self.user.name,
+                "userid": self.user.id,
+                "start_id": self.start_id,
                 "svc_name": self.svc_name,
                 "action": "start",
-                "user_options": user_options,
+                "options": user_options,
             },
         )
 
@@ -339,6 +342,9 @@ class BackendSpawner(Spawner):
                 "Spawn submit ... failed.",
                 extra={
                     "uuidcode": self.name,
+                    "username": self.user.name,
+                    "userid": self.user.id,
+                    "start_id": self.start_id,
                     "svc_name": self.svc_name,
                     "action": "submit_fail",
                     "user_msg": e.jupyterhub_html_message,
@@ -376,6 +382,9 @@ class BackendSpawner(Spawner):
             "Spawn submit ... done.",
             extra={
                 "uuidcode": self.name,
+                "username": self.user.name,
+                "userid": self.user.id,
+                "start_id": self.start_id,
                 "svc_name": self.svc_name,
                 "action": "submitted",
                 "response": resp_json,

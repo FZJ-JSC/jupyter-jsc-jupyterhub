@@ -118,6 +118,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                 }
                 for param, value in spawner.user_options.items():
                     key = f"hub.jupyter.org/{param}"
+                    value = value.replace('/', '-')  # cannot have '/' in k8s label values
                     event["setup_tunnel"]["labels"].update({key: value})
 
                 custom_config = user.authenticator.custom_config

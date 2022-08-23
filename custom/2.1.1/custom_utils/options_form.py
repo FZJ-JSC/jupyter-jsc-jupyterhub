@@ -134,7 +134,6 @@ async def get_options_form(spawner, service, service_info):
 
     custom_config = spawner.user.authenticator.custom_config
     vo_config = custom_config.get("vos")
-    systems_config = custom_config.get("systems")
     resources = custom_config.get("resources")
 
     maintenance_list = get_maintenance_list()

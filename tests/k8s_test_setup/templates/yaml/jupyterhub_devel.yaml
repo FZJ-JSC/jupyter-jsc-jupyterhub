@@ -47,8 +47,8 @@ spec:
           value: "/tmp/shared-data/jupyterhub.sqlite"
         - name: RESERVATIONS_FILE
           value: "/home/jupyterhub/reservations.json"
-        - name: MAINTENANCE_FILE
-          value: "/tmp/shared-data/maintenance-check/maintenance.json"
+        - name: INCIDENTS_FILE
+          value: "/tmp/shared-data/incident-check/active_incidents.json"
         - name: STATIC_FILES_SRC
           value: "/home/jupyterhub/jupyterhub-static/static/default"
         - name: STATIC_FILES_DEST

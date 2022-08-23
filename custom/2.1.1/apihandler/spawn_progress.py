@@ -110,7 +110,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                 event["setup_tunnel"]["servername"] = spawner.name
                 event["setup_tunnel"]["svc_port"] = spawner.port
                 event["setup_tunnel"]["svc_name"] = spawner.svc_name
-                event["setup_tunnel"]["labels"] = {
+                labels = {
                     "hub.jupyter.org/username": user.name,
                     "hub.jupyter.org/servername": spawner.name,
                     "component": "singleuser-server",
@@ -119,11 +119,11 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                 for param, value in spawner.user_options.items():
                     key = f"hub.jupyter.org/{param}"
                     value = value.replace('/', '-')  # cannot have '/' in k8s label values
-                    event["setup_tunnel"]["labels"].update({key: value})
+                    labels.update({key: value})
 
                 custom_config = user.authenticator.custom_config
                 req_prop = drf_request_properties(
-                    "tunnel", custom_config, self.log, uuidcode
+                    "tunnel", custom_config, self.log, uuidcode, custom_headers=labels
                 )
                 service_url = req_prop.get("urls", {}).get("tunnel", "None")
                 req = HTTPRequest(

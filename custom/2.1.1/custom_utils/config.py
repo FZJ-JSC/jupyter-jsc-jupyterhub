@@ -51,9 +51,9 @@ def get_reservations():
 
 def get_maintenance_list():
     try:
-        maintenance_file = os.environ.get("MAINTENANCE_FILE")
-        with open(maintenance_file, "r") as f:
-            maintenance_list = json.load(f)
+        incidents_file = os.environ.get("INCIDENTS_FILE")
+        with open(incidents_file, "r") as f:
+            incidents_list = json.load(f)
     except:
-        maintenance_list = []
-    return maintenance_list
+        incidents_list = []
+    return incidents_list

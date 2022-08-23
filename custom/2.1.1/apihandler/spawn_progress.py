@@ -124,12 +124,12 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                 req_prop = drf_request_properties(
                     "tunnel", custom_config, self.log, uuidcode
                 )
-                headers = req_prop["headers"]["labels"] = labels  # Add labels to headers
+                req_prop["headers"]["labels"] = labels  # Add labels to headers
                 service_url = req_prop.get("urls", {}).get("tunnel", "None")
                 req = HTTPRequest(
                     service_url,
                     method="POST",
-                    headers=headers,
+                    headers=req_prop["headers"],
                     body=json.dumps(event["setup_tunnel"]),
                     request_timeout=req_prop["request_timeout"],
                     validate_cert=req_prop["validate_cert"],

@@ -122,7 +122,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                     labels.update({key: value})
                 custom_config = user.authenticator.custom_config
                 req_prop = drf_request_properties(
-                    "tunnel", custom_config, self.log, uuidcode, custom_headers=labels
+                    "tunnel", custom_config, self.log, uuidcode
                 )
                 req_prop["headers"].update(labels)  # Add labels to headers
                 service_url = req_prop.get("urls", {}).get("tunnel", "None")

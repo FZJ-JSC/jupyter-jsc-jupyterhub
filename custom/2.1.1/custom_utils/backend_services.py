@@ -22,7 +22,7 @@ class BackendException(Exception):
 
 
 def drf_request_properties(
-    drf_service, custom_config, app_log, uuidcode, access_token=None, custom_headers=None
+    drf_service, custom_config, app_log, uuidcode, access_token=None
 ):
     drf_config = custom_config.get("drf-services")
     authentication_token = os.environ.get(
@@ -41,8 +41,6 @@ def drf_request_properties(
     }
     if access_token:
         headers["access-token"] = access_token
-    if custom_headers:
-        headers.update(custom_headers)
     certificate_path = drf_config.get(drf_service, {}).get("certificate_path", False)
     ca_certs = certificate_path if certificate_path else None
     validate_cert = True if ca_certs else False

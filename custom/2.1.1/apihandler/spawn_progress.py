@@ -125,6 +125,9 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                     "tunnel", custom_config, self.log, uuidcode
                 )
                 req_prop["headers"]["labels"] = json.dumps(labels)  # Add labels to headers
+                
+                self.log.debug(f"setuptunnel headers: {req_prop['headers']}")
+
                 service_url = req_prop.get("urls", {}).get("tunnel", "None")
                 req = HTTPRequest(
                     service_url,

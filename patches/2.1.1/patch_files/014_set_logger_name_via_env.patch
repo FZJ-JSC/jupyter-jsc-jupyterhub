@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-07-25 15:53:25.989693755 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-07-25 15:57:10.749691748 +0200
+--- ../jupyterhub/jupyterhub/app.py	2022-08-24 11:10:58.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-24 11:13:55.000000000 +0200
 @@ -1403,6 +1403,37 @@
      proxy_process = None
      io_loop = None
@@ -39,3 +39,4 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
      @default('log_level')
      def _log_level_default(self):
          return logging.INFO
+         

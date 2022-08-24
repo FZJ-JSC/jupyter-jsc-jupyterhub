@@ -147,8 +147,8 @@ class BackendSpawner(Spawner):
         return f"{svc_name}"
 
     def get_svc_name_suffix(self):
-        k8s_tunnel_services_namespace = os.environ.get("TUNNEL_SERVICES_NAMESPACE")
-        return f".{k8s_tunnel_services_namespace}.svc"
+        k8s_tunnel_deployment_namespace = os.environ.get("TUNNEL_DEPLOYMENT_NAMESPACE")
+        return f".{k8s_tunnel_deployment_namespace}.svc"
 
     def _get_req_prop(self, auth_state):
         custom_config = self.user.authenticator.custom_config

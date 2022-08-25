@@ -117,6 +117,8 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                     "app": os.environ.get("JUPYTERHUB_APP", "jupyterhub"),
                 }
                 for param, value in spawner.user_options.items():
+                    if param == "name":
+                        continue
                     key = f"hub.jupyter.org/{param}"
                     value = str(value).replace('/', '-')  # cannot have '/' in k8s label values
                     labels.update({key: value})

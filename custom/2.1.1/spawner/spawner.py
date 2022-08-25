@@ -273,15 +273,20 @@ class BackendSpawner(Spawner):
             },
         )
 
+        user_messages = self.user.authenticator.custom_config.get("user_messages", {})
+        start_pre_default = f"Sending request to backend service to start your service on {user_options['system']}."
+        start_pre_msg = user_messages.get("start_pre", start_pre_default)
         start_event = {
             "failed": False,
             "progress": 10,
-            "html_message": f"<details><summary>{now}: Sending request to backend service to start your service on {user_options['system']}.</summary>\
+            "html_message": f"<details><summary>{now}: {start_pre_msg}</summary>\
                 &nbsp;&nbsp;Start ID: {self.start_id}<br>&nbsp;&nbsp;Options:<br><pre>{json.dumps(user_options, indent=2)}</pre></details>",
         }
+        ready_default = f"Service {user_options['name']} started on {user_options['system']}."
+        ready_msg = user_messages.get("ready", ready_default)
         self.ready_event[
             "html_message"
-        ] = f"<details><summary><now>: Service {user_options['name']} started on {user_options['system']}.</summary>You will be redirected to <a href=\"<url>\"><url></a></details>"
+        ] = f"<details><summary><now>: {ready_msg}</summary>You will be redirected to <a href=\"<url>\"><url></a></details>"
         self.latest_events = [start_event]
 
         self.port = 8080
@@ -369,9 +374,13 @@ class BackendSpawner(Spawner):
         )
         now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
         if self.user.authenticator.custom_config.get("systems", {}).get(user_options["system"], {}).get("drf-service", "") == "unicoremgr":
-            submit_message = f"<details><summary>{now}: Waiting for UNICORE job to run...</summary>You will receive further information about the service status from the UNICORE job.</details>"
+            unicore_post_default = "Waiting for UNICORE job to run... (click on log lines for more information)"
+            unicore_post_msg = user_messages.get("start_post_unicore", unicore_post_default)
+            submit_message = f"<details><summary>{now}: {unicore_post_msg}</summary>You will receive further information about the service status from the UNICORE job.</details>"
         else:
-            submit_message = f"<details><summary>{now}: Waiting for Kubernetes container to start...</summary>You will receive further information about the service status from the container.</details>"
+            k8s_post_default = "Waiting for Kubernetes container to start... (click on log lines for more information)"
+            k8s_post_msg = user_messages.get("start_post_k8s", k8s_post_default)
+            submit_message = f"<details><summary>{now}: {k8s_post_msg}</summary>You will receive further information about the service status from the container.</details>"
         submitted_event = {
             "failed": False,
             "progress": 30,

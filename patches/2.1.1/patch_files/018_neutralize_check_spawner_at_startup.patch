@@ -1,0 +1,23 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
+--- ../jupyterhub/jupyterhub/app.py	2022-07-25 15:57:52.039691380 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-30 14:38:02.174495277 +0200
+@@ -2550,13 +2550,16 @@
+                 )
+                 try:
+                     await user._wait_up(spawner)
++                    self.log.debug(
++                        "Verified that %s is running at %s", spawner._log_name, url
++                    )
+                 except AnyTimeoutError:
+-                    self.log.error(
+-                        "%s does not appear to be running at %s, shutting it down.",
++                    self.log.warning(
++                        "%s does not appear to be running at %s, keep it running anyway.",
+                         spawner._log_name,
+                         url,
+                     )
+-                    status = -1
++                    # status = -1
+ 
+             if status is None:
+                 self.log.info("%s still running", user.name)

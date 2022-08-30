@@ -1,10 +1,14 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-07-25 15:57:52.039691380 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-30 14:38:02.174495277 +0200
-@@ -2550,13 +2550,16 @@
+--- ../jupyterhub/jupyterhub/app.py	2022-08-30 15:39:36.324497229 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-30 15:38:44.244497202 +0200
+@@ -2549,10 +2549,15 @@
+                     "Verifying that %s is running at %s", spawner._log_name, url
                  )
                  try:
-                     await user._wait_up(spawner)
+-                    await user._wait_up(spawner)
++                    await gen.with_timeout(
++                        timedelta(seconds=30), user._wait_up(spawner)
++                    )
 +                    self.log.debug(
 +                        "Verified that %s is running at %s", spawner._log_name, url
 +                    )
@@ -12,12 +16,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 -                    self.log.error(
 -                        "%s does not appear to be running at %s, shutting it down.",
 +                    self.log.warning(
-+                        "%s does not appear to be running at %s, keep it running anyway.",
++                        "Verifying %s does not appear to be running at %s, shutting it down.",
                          spawner._log_name,
                          url,
                      )
--                    status = -1
-+                    # status = -1
- 
-             if status is None:
-                 self.log.info("%s still running", user.name)

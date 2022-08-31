@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-04-01 15:22:26.789475208 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-04-05 13:08:29.778303564 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 08:53:33.384514921 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 09:21:44.534515814 +0200
 @@ -2,6 +2,7 @@
  # Copyright (c) Jupyter Development Team.
  # Distributed under the terms of the Modified BSD License.
@@ -9,11 +9,10 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  import json
  from datetime import datetime
  from datetime import timedelta
-@@ -71,6 +72,22 @@
+@@ -71,6 +72,21 @@
          # add scopes to identify model,
          # but not the scopes we added to ensure we could read our own model
          model["scopes"] = sorted(self.expanded_scopes.difference(_added_scopes))
-+
 +
 +        # Users should be able to receive there access_token, but not
 +        # the refresh token.

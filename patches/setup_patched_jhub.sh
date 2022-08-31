@@ -19,7 +19,10 @@ git clone -b ${1} https://github.com/jupyterhub/jupyterhub.git ${DIR}/${1}/jupyt
 
 for f in `ls ${DIR}/${1}/patch_files/*.patch`
 do
+    PATCHNAME=$(basename $f)
+    echo $PATCHNAME
     patch -d ${DIR}/${1} -p1 < $f
+    # echo "patch -d ${DIR}/${1} -p1 < $f"
 done
 
 cp -rp ${DIR}/${1}/jupyterhub ${DIR}/${1}/jupyterhub-patched

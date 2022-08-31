@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2022-06-10 12:51:41.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-06-10 12:51:51.000000000 +0200
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 08:41:09.814514528 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 09:23:54.664515883 +0200
 @@ -1274,10 +1274,29 @@
              parsed_scopes=self.parsed_scopes,
              expanded_scopes=self.expanded_scopes,

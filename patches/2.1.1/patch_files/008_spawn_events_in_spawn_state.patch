@@ -1,7 +1,7 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/user.py ../jupyterhub-patched/jupyterhub/user.py
---- ../jupyterhub/jupyterhub/user.py	2022-04-05 12:31:55.109927424 +0000
-+++ ../jupyterhub-patched/jupyterhub/user.py	2022-04-05 12:29:27.356533908 +0000
-@@ -785,6 +785,9 @@
+--- ../jupyterhub/jupyterhub/user.py	2022-08-31 08:41:09.814514528 +0200
++++ ../jupyterhub-patched/jupyterhub/user.py	2022-08-31 08:43:35.714514605 +0200
+@@ -783,6 +783,9 @@
                      ),
                      exc_info=True,
                  )
@@ -11,8 +11,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              # raise original exception
              spawner._start_pending = False
              raise e
-@@ -835,6 +838,9 @@
-                     extra={"action": "stoporigin"}
+@@ -831,6 +834,9 @@
+                     )
                  )
                  self.settings['statsd'].incr('spawner.failure.http_error')
 +            # store state again for spawner.events
@@ -21,15 +21,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              try:
                  await self.stop(spawner.name)
              except Exception:
-@@ -844,6 +850,7 @@
-                     ),
-                     exc_info=True,
-                 )
-+
-             # raise original TimeoutError
-             raise e
-         else:
-@@ -855,6 +862,9 @@
+@@ -851,6 +857,9 @@
          finally:
              spawner._waiting_for_response = False
              spawner._start_pending = False

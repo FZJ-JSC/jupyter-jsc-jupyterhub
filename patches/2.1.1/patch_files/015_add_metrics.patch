@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-07-25 15:53:25.989693755 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-07-27 10:28:53.640351087 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 09:22:00.384515823 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 09:25:59.254515949 +0200
 @@ -4,6 +4,8 @@
  import asyncio
  import copy
@@ -10,7 +10,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  from datetime import datetime
  from datetime import timedelta
  from datetime import timezone
-@@ -797,6 +799,19 @@
+@@ -796,6 +798,19 @@
                  self.log.warning(
                      "Server %s didn't start for unknown reason", spawner._log_name
                  )
@@ -31,8 +31,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              await self.send_event(failed_event)
  
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2022-07-25 15:53:25.989693755 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-07-27 10:35:05.500348319 +0200
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 09:24:07.564515890 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 09:27:08.114515985 +0200
 @@ -4,6 +4,7 @@
  import asyncio
  import functools

@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-03-31 11:52:36.223390171 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-03-31 11:55:04.672930542 +0200
+--- ../jupyterhub/jupyterhub/app.py	2022-08-31 08:41:09.814514528 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-31 08:47:03.424514715 +0200
 @@ -1502,11 +1502,11 @@
              log.name = self.log.name
  

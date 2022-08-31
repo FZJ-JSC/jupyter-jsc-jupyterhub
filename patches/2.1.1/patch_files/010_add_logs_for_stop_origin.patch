@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-03-31 11:52:36.239390361 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-04-01 15:17:24.874649866 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 08:41:09.824514528 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 08:49:07.754514780 +0200
 @@ -289,6 +289,7 @@
                  "%s's server is in the process of stopping, please wait." % user_name,
              )
@@ -18,8 +18,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  
          if remove:
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-03-31 11:55:15.281025410 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-04-01 15:07:20.925342481 +0200
+--- ../jupyterhub/jupyterhub/app.py	2022-08-31 08:47:18.794514723 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-31 08:50:10.794514814 +0200
 @@ -2474,7 +2474,7 @@
              spawner = user.spawners[server_name]
              status = await spawner.poll()
@@ -40,8 +40,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          else:
              self.log.info("Leaving single-user servers running")
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/login.py ../jupyterhub-patched/jupyterhub/handlers/login.py
---- ../jupyterhub/jupyterhub/handlers/login.py	2022-03-31 11:52:36.195389840 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/login.py	2022-04-01 15:22:07.097549973 +0200
+--- ../jupyterhub/jupyterhub/handlers/login.py	2022-08-31 08:41:09.794514528 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/login.py	2022-08-31 08:50:48.954514834 +0200
 @@ -30,7 +30,7 @@
              if spawner.active and not spawner.pending
          ]
@@ -52,8 +52,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              for server_name in active_servers:
                  futures.append(maybe_future(self.stop_single_user(user, server_name)))
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/user.py ../jupyterhub-patched/jupyterhub/user.py
---- ../jupyterhub/jupyterhub/user.py	2022-03-31 11:52:36.243390409 +0200
-+++ ../jupyterhub-patched/jupyterhub/user.py	2022-04-01 15:12:02.640004507 +0200
+--- ../jupyterhub/jupyterhub/user.py	2022-08-31 08:44:21.514514629 +0200
++++ ../jupyterhub-patched/jupyterhub/user.py	2022-08-31 08:53:19.194514913 +0200
 @@ -762,7 +762,8 @@
                  self.log.warning(
                      f"{self.name}'s server failed to start"
@@ -74,7 +74,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
                  )
                  self.settings['statsd'].incr('spawner.failure.error')
                  e.reason = 'error'
-@@ -819,7 +821,8 @@
+@@ -822,7 +824,8 @@
                  self.log.warning(
                      f"{self.name}'s server never showed up at {server.url}"
                      f" after {spawner.http_timeout} seconds. Giving up."
@@ -84,7 +84,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
                  )
                  e.reason = 'timeout'
                  self.settings['statsd'].incr('spawner.failure.http_timeout')
-@@ -828,7 +831,8 @@
+@@ -831,7 +834,8 @@
                  self.log.error(
                      "Unhandled error waiting for {user}'s server to show up at {url}: {error}".format(
                          user=self.name, url=server.url, error=e
@@ -93,8 +93,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 +                    extra={"action": "stoporigin"}
                  )
                  self.settings['statsd'].incr('spawner.failure.http_error')
-             try:
-@@ -871,7 +875,7 @@
+             # store state again for spawner.events
+@@ -874,7 +878,7 @@
          spawner.stop_polling()
          spawner._stop_pending = True
  

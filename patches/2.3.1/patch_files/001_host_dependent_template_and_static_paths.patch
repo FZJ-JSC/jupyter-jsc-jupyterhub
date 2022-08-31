@@ -1,0 +1,43 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 10:34:29.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 10:50:15.000000000 +0200
+@@ -5,6 +5,7 @@
+ import functools
+ import json
+ import math
++import os
+ import random
+ import re
+ import time
+@@ -1227,6 +1228,15 @@
+             "<a href='{home}'>home page</a>.".format(home=home)
+         )
+ 
++    def static_url(self, path, include_host=None, **kwargs):
++        host = os.environ.get("JUPYTERHUB_HOSTNAME", "default")
++        static_path = self.settings['static_path']
++        static_url = super().static_url(path, include_host, **kwargs)
++        base_path, path = static_url.split('static/')
++        if not os.path.isfile(os.path.join(static_path, host, path)):
++            host = 'default'
++        return url_path_join(base_path, 'static', host, path)
++        
+     def get_template(self, name, sync=False):
+         """
+         Return the jinja template object for a given name
+@@ -1240,7 +1250,14 @@
+             key = 'jinja2_env_sync'
+         else:
+             key = 'jinja2_env'
+-        return self.settings[key].get_template(name)
++        host = self.request.host
++        template_host_dir = 'default'
++        template_paths = self.settings['template_path']
++        for path in template_paths:
++            if os.path.isfile(os.path.join(path, host, name)):
++                template_host_dir = host  
++        host_template = os.path.join(template_host_dir, name)
++        return self.settings[key].get_template(host_template)
+ 
+     def render_template(self, name, sync=False, **ns):
+         """

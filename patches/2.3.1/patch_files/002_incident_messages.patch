@@ -1,0 +1,32 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 10:51:36.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 10:59:30.000000000 +0200
+@@ -1291,10 +1291,28 @@
+             parsed_scopes=self.parsed_scopes,
+             expanded_scopes=self.expanded_scopes,
+         )
++        ns.update(self.incident_messages)
+         if self.settings['template_vars']:
+             ns.update(self.settings['template_vars'])
+         return ns
+ 
++    @property
++    def incident_messages(self):
++        path = os.environ.get("INCIDENTS_PATH", None)
++        custom_config = self.authenticator.custom_config
++        systems = custom_config.get('incident-check', {}).get('services', {}).keys()
++        if not (path and systems):
++            return {}
++        ret = {"incident_messages": {}}
++        for system in systems:
++            file = os.path.join(path, f"{system}.txt")
++            try:
++                with open(file, 'r') as f:
++                    ret["incident_messages"][system] = f.read().strip()
++            except:
++                self.log.exception(f"Could not read message for {system}")
++        return ret
++
+     def get_accessible_services(self, user):
+         accessible_services = []
+         if user is None:

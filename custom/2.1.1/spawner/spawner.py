@@ -180,9 +180,16 @@ class BackendSpawner(Spawner):
     async def start(self):
         # Save latest events with start event time
         if self.latest_events != []:
-            start_event = self.latest_events[0]
-            start_event_time = self._get_event_time(start_event)
-            self.events[start_event_time] = self.latest_events
+            try:
+                start_event = self.latest_events[0]
+                start_event_time = self._get_event_time(start_event)
+                self.events[start_event_time] = self.latest_events
+            except:
+                self.log.info(
+                    f"Could not retrieve latest_events. Reset events list for {self._log_name}"
+                )
+                self.latest_events = []
+                self.events = []
         # Reset latest events only
         self.latest_events = []
         self.events["latest"] = self.latest_events

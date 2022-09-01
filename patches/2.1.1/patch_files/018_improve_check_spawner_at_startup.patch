@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-09-01 11:16:44.304566592 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-09-01 11:20:44.754566719 +0200
+--- ../jupyterhub/jupyterhub/app.py	2022-09-01 22:46:17.214468676 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-09-01 22:46:34.914468686 +0200
 @@ -2548,11 +2548,12 @@
                          spawner.server.port = 443
                      self.db.commit()
@@ -16,8 +16,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
                      self.log.error(
                          "%s does not appear to be running at %s, shutting it down.",
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/user.py ../jupyterhub-patched/jupyterhub/user.py
---- ../jupyterhub/jupyterhub/user.py	2022-09-01 11:16:44.294566592 +0200
-+++ ../jupyterhub-patched/jupyterhub/user.py	2022-09-01 11:21:13.604566735 +0200
+--- ../jupyterhub/jupyterhub/user.py	2022-09-01 22:46:17.214468676 +0200
++++ ../jupyterhub-patched/jupyterhub/user.py	2022-09-01 22:48:10.664468736 +0200
 @@ -804,7 +804,7 @@
          spawner._waiting_for_response = True
          await self._wait_up(spawner)
@@ -27,7 +27,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          """Wait for a server to finish starting.
  
          Shuts the server down if it doesn't respond within
-@@ -815,56 +815,65 @@
+@@ -815,56 +815,70 @@
          cert = self.settings.get('internal_ssl_cert')
          ca = self.settings.get('internal_ssl_ca')
          ssl_context = make_ssl_context(key, cert, cafile=ca)
@@ -66,9 +66,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 -                        user=self.name
 -                    ),
 -                    exc_info=True,
-+                resp = await server.wait_up(
-+                    http=True, timeout=spawner.http_timeout, ssl_context=ssl_context
-                 )
+-                )
 -            # raise original TimeoutError
 -            raise e
 -        else:
@@ -84,6 +82,14 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 -            spawner.orm_spawner.state = spawner.get_state()
 -            self.db.commit()
 -        return spawner
++                if retries:
++                    resp = await server.wait_up(
++                        http=True, timeout=10, ssl_context=ssl_context
++                    )
++                else:
++                    resp = await server.wait_up(
++                        http=True, timeout=spawner.http_timeout, ssl_context=ssl_context
++                    )
 +            except Exception as e:
 +                if i < len(retries):
 +                    import time

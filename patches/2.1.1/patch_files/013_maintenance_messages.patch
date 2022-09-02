@@ -16,9 +16,9 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 +        custom_config = self.authenticator.custom_config
 +        maintenance_config = custom_config.get('incident-check', {})
 +        systems = maintenance_config.get('services', {}).keys()
-+        if not (path and systems):
-+            return {}
 +        ret = {"incident_messages": {}}
++        if not (path and systems):
++            return ret
 +        for system in systems:
 +            file = os.path.join(path, f"{system}.txt")
 +            try:

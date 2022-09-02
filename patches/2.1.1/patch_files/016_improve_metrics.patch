@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 09:27:23.544515993 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 09:31:17.984516117 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-09-02 12:55:43.312696110 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-09-02 12:56:07.282696123 +0200
 @@ -806,11 +806,15 @@
                          ["%s=%s" % (k, v) for k, v in spawner.user_options.items()]
                      )
@@ -23,8 +23,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              await self.send_event(failed_event)
  
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 09:28:31.064516029 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 09:31:13.084516115 +0200
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-09-02 12:55:56.442696117 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-09-02 12:56:07.282696123 +0200
 @@ -801,14 +801,16 @@
              ]:
                  auth_state = await user.get_auth_state()

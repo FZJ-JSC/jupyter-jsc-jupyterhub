@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 09:22:00.384515823 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 09:25:59.254515949 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-09-02 12:52:33.142696010 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-09-02 12:55:31.132696104 +0200
 @@ -4,6 +4,8 @@
  import asyncio
  import copy
@@ -31,8 +31,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              await self.send_event(failed_event)
  
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 09:24:07.564515890 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 09:27:08.114515985 +0200
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-09-02 12:53:49.802696050 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-09-02 12:55:31.132696104 +0200
 @@ -4,6 +4,7 @@
  import asyncio
  import functools

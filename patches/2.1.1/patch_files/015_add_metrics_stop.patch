@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 09:27:23.544515993 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 09:28:25.404516026 +0200
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-09-02 12:55:31.132696104 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-09-02 12:55:56.442696117 +0200
 @@ -1196,6 +1196,19 @@
                          'servername': server_name,
                      },

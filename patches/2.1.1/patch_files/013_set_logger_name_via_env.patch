@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-08-31 09:22:54.674515851 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-31 09:24:53.934515914 +0200
+--- ../jupyterhub/jupyterhub/app.py	2022-09-02 12:51:32.582695978 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-09-02 12:54:54.282696084 +0200
 @@ -1403,6 +1403,37 @@
      proxy_process = None
      io_loop = None

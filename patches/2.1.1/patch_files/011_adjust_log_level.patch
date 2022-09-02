@@ -1,7 +1,7 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-08-31 08:53:33.394514921 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-31 09:22:41.124515844 +0200
-@@ -1494,12 +1494,15 @@
+--- ../jupyterhub/jupyterhub/app.py	2022-09-02 12:50:14.212695936 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-09-02 12:51:17.932695970 +0200
+@@ -1494,12 +1494,14 @@
  
          # disable curl debug, which is TOO MUCH
          logging.getLogger('tornado.curl_httpclient').setLevel(
@@ -12,9 +12,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          for log in (app_log, access_log, gen_log):
              # ensure all log statements identify the application they come from
              log.name = self.log.name
-+            log.setLevel(logging.WARNING)
 +            if log is gen_log:
 +                log.setLevel(logging.CRITICAL)
  
          # hook up tornado's and oauthlib's loggers to our own
-         # for name in ("tornado", "oauthlib"):
+         for name in ("tornado", "oauthlib"):

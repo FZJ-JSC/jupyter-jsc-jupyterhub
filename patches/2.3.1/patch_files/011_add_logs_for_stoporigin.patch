@@ -20,7 +20,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
 --- ../jupyterhub/jupyterhub/app.py	2022-08-31 12:13:00.000000000 +0200
 +++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-31 12:15:02.000000000 +0200
-@@ -2515,7 +2515,7 @@
+@@ -2514,7 +2514,7 @@
              spawner = user.spawners[server_name]
              status = await spawner.poll()
              self.log.warning(
@@ -29,7 +29,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              )
              await self.proxy.delete_user(user, server_name)
              await user.stop(server_name)
-@@ -2966,6 +2966,9 @@
+@@ -2965,6 +2965,9 @@
              for uid, user in self.users.items():
                  for name, spawner in list(user.spawners.items()):
                      if spawner.active:

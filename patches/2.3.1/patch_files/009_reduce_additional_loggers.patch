@@ -1,7 +1,7 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-08-31 10:40:36.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-31 12:08:39.000000000 +0200
-@@ -1496,19 +1496,22 @@
+--- ../jupyterhub/jupyterhub/app.py	2022-09-02 10:30:04.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-09-02 10:30:46.000000000 +0200
+@@ -1496,12 +1496,14 @@
  
          # disable curl debug, which is TOO MUCH
          logging.getLogger('tornado.curl_httpclient').setLevel(
@@ -12,21 +12,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          for log in (app_log, access_log, gen_log):
              # ensure all log statements identify the application they come from
              log.name = self.log.name
-+            log.setLevel(logging.WARNING)
-+            if log is gen_log:
++            if log is gen_log or log is access_log:
 +                log.setLevel(logging.CRITICAL)
  
          # hook up tornado's and oauthlib's loggers to our own
--        for name in ("tornado", "oauthlib"):
--            logger = logging.getLogger(name)
--            logger.propagate = True
--            logger.parent = self.log
--            logger.setLevel(self.log.level)
-+        # for name in ("tornado", "oauthlib"):
-+        #     logger = logging.getLogger(name)
-+        #     logger.propagate = True
-+        #     logger.parent = self.log
-+        #     logger.setLevel(self.log.level)
- 
-     @staticmethod
-     def add_url_prefix(prefix, handlers):
+         for name in ("tornado", "oauthlib"):

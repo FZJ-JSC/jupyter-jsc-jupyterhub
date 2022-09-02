@@ -1,7 +1,7 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
 --- ../jupyterhub/jupyterhub/app.py	2022-09-01 11:16:44.304566592 +0200
 +++ ../jupyterhub-patched/jupyterhub/app.py	2022-09-01 11:20:44.754566719 +0200
-@@ -2548,11 +2548,12 @@
+@@ -2547,11 +2547,12 @@
                          spawner.server.port = 443
                      self.db.commit()
  

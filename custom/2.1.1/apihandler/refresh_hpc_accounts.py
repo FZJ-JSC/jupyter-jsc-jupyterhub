@@ -24,7 +24,7 @@ def secret_authenticated(self):
         raise web.HTTPError(403)
 
 
-class HPCUpdateHandler(APIHandler):
+class HPCUpdateAPIHandler(APIHandler):
     @secret_authenticated
     @needs_scope("admin:users")
     async def post(self, username):

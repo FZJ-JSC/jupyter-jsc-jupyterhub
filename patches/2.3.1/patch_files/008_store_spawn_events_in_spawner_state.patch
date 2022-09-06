@@ -1,0 +1,33 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/user.py ../jupyterhub-patched/jupyterhub/user.py
+--- ../jupyterhub/jupyterhub/user.py	2022-08-31 11:51:16.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/user.py	2022-08-31 12:05:53.000000000 +0200
+@@ -835,6 +835,9 @@
+                     ),
+                     exc_info=True,
+                 )
++            # store state again for spawner.events
++            spawner.orm_spawner.state = spawner.get_state()
++            self.db.commit()
+             # raise original exception
+             spawner._start_pending = False
+             raise e
+@@ -883,6 +886,9 @@
+                     )
+                 )
+                 self.settings['statsd'].incr('spawner.failure.http_error')
++            # store state again for spawner.events
++            spawner.orm_spawner.state = spawner.get_state()
++            self.db.commit()
+             try:
+                 await self.stop(spawner.name)
+             except Exception:
+@@ -903,6 +909,9 @@
+         finally:
+             spawner._waiting_for_response = False
+             spawner._start_pending = False
++            # store state again for spawner.events
++            spawner.orm_spawner.state = spawner.get_state()
++            self.db.commit()
+         return spawner
+ 
+     async def stop(self, server_name=''):

@@ -1,0 +1,65 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/pages.py ../jupyterhub-patched/jupyterhub/handlers/pages.py
+--- ../jupyterhub/jupyterhub/handlers/pages.py	2022-08-31 11:02:23.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2022-08-31 11:10:21.000000000 +0200
+@@ -20,6 +20,7 @@
+ from .base import BaseHandler
+ 
+ from custom_utils import get_maintenance_list
++from handler.page_handlers import get_user_auth_state_with_vos
+ 
+ 
+ class RootHandler(BaseHandler):
+@@ -74,7 +75,7 @@
+         spawner.handler = self
+         options_form = await spawner.get_options_form()
+ 
+-        auth_state = await user.get_auth_state()
++        auth_state = await get_user_auth_state_with_vos(user)
+         html = await self.render_template(
+             'home.html',
+             auth_state=auth_state,
+@@ -105,7 +106,7 @@
+     default_url = None
+ 
+     async def _render_form(self, for_user, spawner_options_form, message=''):
+-        auth_state = await for_user.get_auth_state()
++        auth_state = await get_user_auth_state_with_vos(for_user)
+         return await self.render_template(
+             'spawn.html',
+             for_user=for_user,
+@@ -183,7 +184,7 @@
+ 
+         # auth_state may be an input to options form,
+         # so resolve the auth state hook here
+-        auth_state = await user.get_auth_state()
++        auth_state = await get_user_auth_state_with_vos(user)
+         await spawner.run_auth_state_hook(auth_state)
+ 
+         # Try to start server directly when query arguments are passed.
+@@ -377,7 +378,7 @@
+         # if spawning fails for any reason, point users to /hub/home to retry
+         self.extra_error_html = self.spawn_home_error
+ 
+-        auth_state = await user.get_auth_state()
++        auth_state = await get_user_auth_state_with_vos(user)
+ 
+         # First, check for previous failure.
+         if not spawner.active and spawner._failed:
+@@ -470,7 +471,7 @@
+     @needs_scope('admin:users')
+     @needs_scope('admin:servers')
+     async def get(self):
+-        auth_state = await self.current_user.get_auth_state()
++        auth_state = await get_user_auth_state_with_vos(self.current_user)
+         html = await self.render_template(
+             'admin.html',
+             current_user=self.current_user,
+@@ -555,7 +556,7 @@
+ 
+         oauth_clients = sorted(oauth_clients, key=sort_key, reverse=True)
+ 
+-        auth_state = await self.current_user.get_auth_state()
++        auth_state = await get_user_auth_state_with_vos(self.current_user)
+         html = await self.render_template(
+             'token.html',
+             api_tokens=api_tokens,

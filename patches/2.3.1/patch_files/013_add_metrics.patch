@@ -1,0 +1,117 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 12:23:21.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 12:29:03.000000000 +0200
+@@ -4,6 +4,8 @@
+ import asyncio
+ import copy
+ import json
++import logging
++import os
+ from datetime import datetime
+ from datetime import timedelta
+ from datetime import timezone
+@@ -800,6 +802,23 @@
+                 self.log.warning(
+                     "Server %s didn't start for unknown reason", spawner._log_name
+                 )
++                if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
++                    "true",
++                    "1",
++                ]:
++                    options = ";".join(
++                        ["%s=%s" % (k, v) for k, v in spawner.user_options.items()]
++                    )
++                    metrics_logger = logging.getLogger("Metrics")
++                    metrics_extras = {
++                        "action": "failed",
++                        "userid": user.id,
++                        "servername": spawner.name,
++                        "options": spawner.user_options
++                    }
++                    metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
++                    self.log.info("failed", extra=metrics_extras)
++                    
+             spawner.latest_events.append(failed_event)
+             await self.send_event(failed_event)
+ 
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 11:00:42.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 12:32:05.000000000 +0200
+@@ -4,6 +4,7 @@
+ import asyncio
+ import functools
+ import json
++import logging
+ import math
+ import os
+ import random
+@@ -813,6 +814,21 @@
+             self.set_login_cookie(user)
+             self.statsd.incr('login.success')
+             self.statsd.timing('login.authenticate.success', auth_timer.ms)
++            if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
++                "true",
++                "1",
++            ]:
++                auth_state = await user.get_auth_state()
++                metrics_logger = logging.getLogger("Metrics")
++                metrics_extras = {
++                    "action": "login",
++                    "userid": user.id,
++                    "authenticator": auth_state.get("oauth_user", {}).get(
++                        "used_authenticator_attr", "unknown"
++                        )
++                }
++                metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};authenticator={metrics_extras['authenticator']}")
++                self.log.info("login", extra=metrics_extras)
+ 
+             self.log.info("User logged in: %s", user.name)
+             user._auth_refreshed = time.monotonic()
+@@ -965,6 +981,24 @@
+                 "User %s took %.3f seconds to start", user_server_name, toc - tic
+             )
+             self.statsd.timing('spawner.success', (toc - tic) * 1000)
++            if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
++                "true",
++                "1",
++            ]:
++                options = ';'.join(
++                    ['%s=%s' % (k, v) for k, v in spawner.user_options.items()]
++                )
++                metrics_logger = logging.getLogger("Metrics")
++                metrics_extras = {
++                    "action": "successful",
++                    "userid": user.id,
++                    "servername": server_name,
++                    "duration": toc - tic,
++                    "options": spawner.user_options
++                }
++                metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};duration={metrics_extras['duration']};{options}")
++                self.log.info("successful", extra=metrics_extras)
++
+             SERVER_SPAWN_DURATION_SECONDS.labels(
+                 status=ServerSpawnStatus.success
+             ).observe(time.perf_counter() - spawn_start_time)
+@@ -1185,6 +1219,22 @@
+                     },
+                 )
+             except:
++                if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
++                    "true",
++                    "1",
++                ]:
++                    options = ';'.join(
++                        ['%s=%s' % (k, v) for k, v in spawner.user_options.items()]
++                    )
++                    metrics_logger = logging.getLogger("Metrics")                    
++                    metrics_extras = {
++                        "action": "stop",
++                        "userid": user.id,
++                        "servername": server_name,
++                        "options": spawner.user_options
++                    }
++                    metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
++                    self.log.info("usercancel", extra=metrics_extras)
+                 PROXY_DELETE_DURATION_SECONDS.labels(
+                     status=ProxyDeleteStatus.failure
+                 ).observe(time.perf_counter() - tic)

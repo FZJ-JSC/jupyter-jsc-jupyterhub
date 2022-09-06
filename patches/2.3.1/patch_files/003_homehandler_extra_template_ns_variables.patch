@@ -1,0 +1,35 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/pages.py ../jupyterhub-patched/jupyterhub/handlers/pages.py
+--- ../jupyterhub/jupyterhub/handlers/pages.py	2022-08-31 10:34:29.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2022-08-31 11:01:07.000000000 +0200
+@@ -19,6 +19,8 @@
+ from ..utils import url_path_join
+ from .base import BaseHandler
+ 
++from custom_utils import get_maintenance_list
++
+ 
+ class RootHandler(BaseHandler):
+     """Render the Hub root page.
+@@ -67,6 +69,11 @@
+         else:
+             url = url_path_join(self.hub.base_url, 'spawn', user.escaped_name)
+ 
++        # Get options form from default spawner
++        spawner = user.spawners['']
++        spawner.handler = self
++        options_form = await spawner.get_options_form()
++
+         auth_state = await user.get_auth_state()
+         html = await self.render_template(
+             'home.html',
+@@ -79,6 +86,10 @@
+             # can't use user.spawners because the stop method of User pops named servers from user.spawners when they're stopped
+             spawners=user.orm_user._orm_spawners,
+             default_server=user.spawner,
++            # extra infos for custom template
++            custom_config=user.authenticator.custom_config,
++            maintenance_list=get_maintenance_list(),
++            spawner_options_form=options_form
+         )
+         self.finish(html)
+ 

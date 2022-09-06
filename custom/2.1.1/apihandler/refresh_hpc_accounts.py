@@ -9,23 +9,23 @@ from jupyterhub.scopes import needs_scope
 from jupyterhub.utils import auth_decorator
 
 
-@auth_decorator
-def secret_authenticated(self):
-    """Decorator for method authenticated only by Authorization token header
-    (no cookies)
-    """
-    auth = self.request.headers.get("Authorization")
-    if not auth:
-        raise web.HTTPError(403)
-    if not auth.startswith("token "):
-        raise web.HTTPError(403)
-    secret = auth.split()[1]
-    if secret != os.environ.get("AUTH_SECRET"):
-        raise web.HTTPError(403)
+# @auth_decorator
+# def secret_authenticated(self):
+#     """Decorator for method authenticated only by Authorization token header
+#     (no cookies)
+#     """
+#     auth = self.request.headers.get("Authorization")
+#     if not auth:
+#         raise web.HTTPError(403)
+#     if not auth.startswith("token "):
+#         raise web.HTTPError(403)
+#     secret = auth.split()[1]
+#     if secret != os.environ.get("HPC_UPDATE_API_TOKEN"):
+#         raise web.HTTPError(403)
 
 
 class HPCUpdateAPIHandler(APIHandler):
-    @secret_authenticated
+    # @secret_authenticated
     @needs_scope("admin:users")
     async def post(self, username):
         user = self.find_user(username)

@@ -44,7 +44,7 @@ class HPCUpdateAPIHandler(APIHandler):
             # test if it's just one string
             if len(body) > 0 and len(body[0]) == 1:
                 body = [''.join(body)]
-            default_partitions = self.custom_config.get("default_partitions")
+            default_partitions = self.authenticator.custom_config.get("default_partitions")
             to_add = []
             for entry in body:
                 partition = re.search("[^,]+,([^,]+),[^,]+,[^,]+", entry).groups()[0]

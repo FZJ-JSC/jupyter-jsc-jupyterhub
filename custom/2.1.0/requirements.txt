@@ -1,1 +1,0 @@
-oauthenticator==14.2.0

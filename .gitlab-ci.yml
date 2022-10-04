@@ -5,14 +5,7 @@ stages:
 
 workflow:
   rules:
-    - if: $CI_COMMIT_BRANCH == "devel"
-      variables:
-        BUILD_DEVEL: "False"
-        RUN_UNIT_TESTS: "True"
-        BUILD_COMMIT_SHORT: "True"
-        RUN_FUNCTIONAL_TESTS: "True"
-        LATEST_TAG: "latest"
-    - if: $CI_COMMIT_BRANCH == "dev"
+    - if: $CI_COMMIT_BRANCH != "main"
       variables:
         BUILD_DEVEL: "True"
         RUN_UNIT_TESTS: "True"

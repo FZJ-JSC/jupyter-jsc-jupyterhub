@@ -236,8 +236,9 @@ class BackendSpawner(Spawner):
         return ret
 
     async def _start(self):
+        config = self.user.authenticator.custom_config
         def map_user_options():
-            config = self.user.authenticator.custom_config
+            # config = self.user.authenticator.custom_config
             ret = {}
             for key, value in self.user_options.items():
                 ret[config.get("map_user_options").get(key, key)] = value
@@ -252,7 +253,7 @@ class BackendSpawner(Spawner):
         now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
         user_options = map_user_options()
         try:
-            check_formdata_keys(user_options, self.user.authenticator.custom_config)
+            check_formdata_keys(user_options, config)
         except KeyError as e:
             error = "Invalid input"
             detailed_error = str(e)
@@ -280,7 +281,7 @@ class BackendSpawner(Spawner):
             },
         )
 
-        user_messages = self.user.authenticator.custom_config.get("user_messages", {})
+        user_messages = config.get("user_messages", {})
         start_pre_default = f"Sending request to backend service to start your service on {user_options['system']}."
         start_pre_msg = user_messages.get("start_pre", start_pre_default)
         start_event = {
@@ -300,7 +301,13 @@ class BackendSpawner(Spawner):
 
         auth_state = await self.user.get_auth_state()
 
+        add_env = {}
+        for options in config.get("additional_spawn_options", {}).items():
+            for key in options[1]:
+                add_env[f"KERNELS_{key.upper()}_ENABLED"] = int(key in user_options.get("additional_spawn_options"))
+
         env = self.get_env()
+        env.update(add_env)
         popen_kwargs = {
             "auth_state": auth_state,
             "env": env,

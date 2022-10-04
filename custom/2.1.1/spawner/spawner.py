@@ -304,7 +304,7 @@ class BackendSpawner(Spawner):
         add_env = {}
         for options in config.get("additional_spawn_options", {}).items():
             for key in options[1]:
-                add_env[f"KERNEL_{key.upper()}_ENABLED"] = int(key in user_options.get("additional_spawn_options"))
+                add_env[f"JUPYTER_MODULE{key.upper()}_ENABLED"] = int(key in user_options.get("additional_spawn_options"))
 
         env = self.get_env()
         env.update(add_env)

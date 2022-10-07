@@ -463,7 +463,7 @@ def check_formdata_keys(data, custom_config):
     required_keys = {"vo", "name", "service", "system"}
     if data.get("system") in unicore_systems:
         required_keys = required_keys | {"account", "project", "partition"}
-    allowed_keys = required_keys | {"reservation", "nodes", "gpus", "runtime"}
+    allowed_keys = required_keys | {"reservation", "nodes", "gpus", "runtime", "additional_spawn_options"}
 
     if not required_keys <= keys:
         raise KeyError(f"Keys must include {required_keys}, but got {keys}.")

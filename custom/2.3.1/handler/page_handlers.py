@@ -101,3 +101,31 @@ class VOHandler(BaseHandler):
             vo_details=vo_details,
         )
         self.finish(html)
+
+class TemplateServerHandler(BaseHandler):
+    @web.authenticated
+    async def post(self, template):
+        user = self.current_user
+        active_server = [
+            (k, v.user_options.get("name", k))
+            for k, v in user.spawners.items()
+            if v.ready
+        ]
+        args = self.request.arguments
+        try:
+            args_params = args["params"]
+            if type(args_params) == list:
+                args_params = args_params[0]
+            template_params = json.loads(args_params.decode())
+        except:
+            self.log.exception("Could not read template parameters")
+            template_params = {}
+
+        html = await self.render_template(
+            "notebook_template_server.html",
+            user=user,
+            template=template,
+            template_params=template_params,
+            active_server=active_server,
+        )
+        self.finish(html)

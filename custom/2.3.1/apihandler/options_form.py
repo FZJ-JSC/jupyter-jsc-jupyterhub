@@ -29,6 +29,6 @@ class SpawnOptionsFormAPIHandler(APIHandler):
                 }
             )
             raise web.HTTPError(404)
-        spawner = orm_user.orm_spawners[server_name]
+        spawner = user.spawners[server_name]
         ret = await spawner.get_options_form()
         self.write(json.dumps(ret))

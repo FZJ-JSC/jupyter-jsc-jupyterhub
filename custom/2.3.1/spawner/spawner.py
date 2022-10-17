@@ -620,24 +620,21 @@ class BackendSpawner(Spawner):
             for key, byte_list in spawner.handler.request.query_arguments.items():
                 query_options[key] = [bs.decode("utf8") for bs in byte_list]
             service = query_options.get("service", "JupyterLab")
+            if type(service) == list:
+                service = service[0]
         else:
             try:
-                service = spawner.user_options.get("service", "JupyterLab")
+                service = spawner.user_options.get("service", "JupyterLab").split("/")[0]
             except:
                 self.log.exception("Could not receive options_form")
                 service = ""
-        
-        if type(service) == list:
-            service = service[0]
-        service_type = service.split("/")[0]
-
 
         services = self.user.authenticator.custom_config.get("services", {})
-        if service_type in services.keys():
+        if service in services.keys():
             return await get_options_form(
-                spawner, service, services[service_type].get("options", {})
+                spawner, service, services[service].get("options", {})
             )
-        raise NotImplementedError(f"Service type {service_type} from {service} unknown")
+        raise NotImplementedError(f"Service type {service} from {service} unknown")
 
     async def options_from_form(self, formdata):
         custom_config = self.user.authenticator.custom_config

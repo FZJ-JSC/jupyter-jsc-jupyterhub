@@ -107,7 +107,7 @@ class TemplateServerHandler(BaseHandler):
     @web.authenticated
     async def post(self, template):
         user = self.current_user
-        active_server = [
+        active_servers = [
             (k, v.user_options.get("name", k))
             for k, v in user.spawners.items()
             if v.ready
@@ -127,6 +127,6 @@ class TemplateServerHandler(BaseHandler):
             user=user,
             template=template,
             template_params=template_params,
-            active_server=active_server,
+            active_servers=active_servers,
         )
         self.finish(html)

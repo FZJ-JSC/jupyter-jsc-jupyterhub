@@ -616,7 +616,7 @@ class BackendSpawner(Spawner):
     async def options_form(self, spawner):
         query_options = {}
         # When receiving options_form via APIHandler no handler is defined
-        if spawner.handler is None:
+        if spawner.handler:
             for key, byte_list in spawner.handler.request.query_arguments.items():
                 query_options[key] = [bs.decode("utf8") for bs in byte_list]
             service = query_options.get("service", "JupyterLab")

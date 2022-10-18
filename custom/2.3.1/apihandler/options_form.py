@@ -30,5 +30,24 @@ class SpawnOptionsFormAPIHandler(APIHandler):
             )
             raise web.HTTPError(404)
         spawner = user.spawners[server_name]
-        ret = await spawner.get_options_form()
-        self.write(json.dumps(ret))
+        service_type = spawner.user_options.get("service", "JupyterLab/JupyterLab").split("/")[1]
+        tmp = await spawner.get_options_form()
+        qargs = self.request.query_arguments
+        if "system" in qargs.keys():
+            for systemb in qargs["system"]:
+                ret = {}
+                system = systemb.decode("utf8")
+                ret[system] = {
+                    "dropdown_lists": {},
+                    "resources": {}
+                }
+                ret[system]["dropdown_lists"]["accounts"] = tmp.get("dropdown_lists", {}).get("accounts", {}).get(system, [])
+                ret[system]["dropdown_lists"]["projects"] = tmp.get("dropdown_lists", {}).get("projects", {}).get(system, {})
+                ret[system]["dropdown_lists"]["partitions"] = tmp.get("dropdown_lists", {}).get("partitions", {}).get(system, {})
+                ret[system]["dropdown_lists"]["reservations"] = tmp.get("dropdown_lists", {}).get("reservations", {}).get(system, {})
+                ret[system]["resources"] = tmp.get("resources", {}).get(service_type, {}).get(system, {})
+            if type(system) == list:
+                system = system[0]
+            self.write(json.dumps(ret))
+        else:
+            self.write(json.dumps(tmp))

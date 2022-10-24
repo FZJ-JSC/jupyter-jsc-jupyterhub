@@ -10,7 +10,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  
  class SelfAPIHandler(APIHandler):
      """Return the authenticated user's model
-@@ -536,6 +53,15 @@
+@@ -536,6 +538,15 @@
                  raise web.HTTPError(400, "%s is already running" % spawner._log_name)
  
          options = self.get_json_body()

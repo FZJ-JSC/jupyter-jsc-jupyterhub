@@ -10,7 +10,8 @@ from tornado.httpclient import AsyncHTTPClient
 from tornado.httpclient import HTTPClientError
 from tornado.httpclient import HTTPRequest
 
-
+## TODO: documentation
+## inline and notebook for jupyter-jsc/sample documentation
 class TemplateServerAPIHandler(APIHandler):
     @needs_scope("access:servers")
     async def post(self, user_name, server_name=""):
@@ -59,17 +60,7 @@ class TemplateServerAPIHandler(APIHandler):
         if notebook.get("metadata", {}).get("insert_paramater_cell", True):
             self.insert_parameters(notebook, body.get("params", {}))
 
-        host = self.request.host
-        scheme = self.request.protocol
-        if server_name:
-            userlab_url = f"{scheme}://{host}" + url_path_join(
-                self.base_url, f"/user/{user_name}/{server_name}"
-            )
-        else:
-            userlab_url = f"{scheme}://{host}" + url_path_join(
-                self.base_url, f"/user/{user_name}"
-            )
-        api_url = f"{userlab_url}/api"
+        api_url = f"{spawner.server.bind_url.rstrip('/')}/api"
 
         if hasattr(user.authenticator, "custom_config"):
             custom_config = user.authenticator.custom_config
@@ -85,12 +76,28 @@ class TemplateServerAPIHandler(APIHandler):
 
         dir_url = f"{api_url}/contents{home_path}"
 
-        notebook_name = await self.get_notebook_name(
-            dir_url, token, f"{base_path}/{notebook_template}"
-        )
+        if hasattr(user.authenticator, "fetch"):
+            fetch_func = user.authenticator.fetch
+        else:
+            fetch_func = self.fetch
+        
+        if dir_url.startswith("https://"):
+            request_kwargs = {
+                "client_key": user.settings.get('internal_ssl_key'),
+                "client_cert": user.settings.get('internal_ssl_cert'),
+                "ca_certs": user.settings.get('internal_ssl_ca')
+            }
+        else:
+            request_kwargs = {}
 
-        await self.create_directories(token, dir_url, notebook_name)
 
+
+        # Receive correct notebook name and create directories on the way
+        notebook_name = await self.get_notebook_name(fetch_func, request_kwargs, dir_url, token, f"{base_path}/{notebook_template}")
+        await self.create_directories(fetch_func, request_kwargs, token, dir_url, notebook_name)
+        
+
+        # Upload notebook
         req = HTTPRequest(
             url=f"{dir_url}/{notebook_name}",
             method="PUT",
@@ -98,36 +105,57 @@ class TemplateServerAPIHandler(APIHandler):
             body=json.dumps(
                 {"content": notebook, "format": "json", "type": "notebook"}
             ),
+            **request_kwargs
         )
 
         try:
-            await self.async_req(req)
+            await fetch_func(req)
         finally:
             if new_token_generated:
                 self.db.delete(orm_api_token)
                 self.db.commit()
+        
+
+
+        host = self.request.host
+        scheme = self.request.protocol
+        if server_name:
+            userlab_url = f"{scheme}://{host}" + url_path_join(
+                self.base_url, f"/user/{user_name}/{server_name}"
+            )
+        else:
+            userlab_url = f"{scheme}://{host}" + url_path_join(
+                self.base_url, f"/user/{user_name}"
+            )
+
         redirect_url = f"{userlab_url}/lab/tree{home_path}/{notebook_name}"
         self.redirect(redirect_url, status=302)
 
-    async def create_directories(self, token, api_url, full_notebook_name):
+    async def create_directories(self, fetch, request_kwargs, token, api_url, full_notebook_name):
         directories = full_notebook_name.lstrip("/").rstrip("/").split("/")[:-1]
         for i in range(len(directories) + 1):
             req = HTTPRequest(
                 url=f"{api_url}/{'/'.join(directories[:i])}",
                 method="GET",
                 headers={"Authorization": f"token {token}"},
+                **request_kwargs
             )
             try:
-                await self.async_req(req)
-            except web.HTTPError as e:
-                if e.status_code == 404:
+                await fetch(req)
+            except HTTPClientError as e:
+                if e.code == 404:
                     req = HTTPRequest(
                         url=f"{api_url}/{'/'.join(directories[:i])}",
                         method="PUT",
                         headers={"Authorization": f"token {token}"},
                         body=json.dumps({"type": "directory"}),
+                        **request_kwargs
                     )
-                    await self.async_req(req)
+                    await fetch(req)
+            except Exception as e:
+                x = e
+                self.log.exception("No")
+                x = 0
 
     def get_config_pathes(self, user_options, custom_config):
         try:
@@ -142,31 +170,7 @@ class TemplateServerAPIHandler(APIHandler):
         except:
             raise web.HTTPError(400, log_message="Could not guess $HOME.")
 
-    async def async_req(self, req):
-        try:
-            resp = await AsyncHTTPClient().fetch(req)
-            return resp
-        except HTTPClientError as e:
-            if e.response:
-                # Log failed response message for debugging purposes
-                message = e.response.body.decode("utf8", "replace")
-                try:
-                    # guess json, reformat for readability
-                    json_message = json.loads(message)
-                except ValueError:
-                    # not json
-                    pass
-                else:
-                    # reformat json log message for readability
-                    message = json.dumps(json_message, sort_keys=True, indent=1)
-            else:
-                # didn't get a response, e.g. connection error
-                message = str(e)
-            raise web.HTTPError(e.code, str(e))
-        except Exception as e:
-            raise web.HTTPError(400, str(e))
-
-    async def get_notebook_name(self, dir_url, api_token, notebook_template):
+    async def get_notebook_name(self, fetch, request_kwargs, dir_url, api_token, notebook_template):
         """
         Do not override files.
         """
@@ -177,14 +181,15 @@ class TemplateServerAPIHandler(APIHandler):
         ext = filename_ext[first_dot:]
 
         dir_path = os.path.dirname(notebook_template).lstrip("/").rstrip("/")
+
         req = HTTPRequest(
             method="GET",
             headers={"Authorization": f"token {api_token}"},
             url=f"{dir_url}/{dir_path}/",
+            **request_kwargs
         )
         try:
-            resp = await self.async_req(req)
-            body = json.loads(resp.body.decode())
+            body = await fetch(req)
         except Exception as e:
             body = {}
         i = 1
@@ -285,3 +290,37 @@ class TemplateServerAPIHandler(APIHandler):
             "source": source,
         }
         notebook["cells"].insert(1, params_cell)
+
+    async def fetch(self, req, parse_json=True):
+        try:
+            if self.http_client is None:
+                self.http_client = AsyncHTTPClient()
+            resp = await self.http_client.fetch(req)
+        except HTTPClientError as e:
+            if e.response:
+                # Log failed response message for debugging purposes
+                message = e.response.body.decode("utf8", "replace")
+                try:
+                    # guess json, reformat for readability
+                    json_message = json.loads(message)
+                except ValueError:
+                    # not json
+                    pass
+                else:
+                    # reformat json log message for readability
+                    message = json.dumps(json_message, sort_keys=True, indent=1)
+            else:
+                # didn't get a response, e.g. connection error
+                message = str(e)
+            raise web.HTTPError(e.code, str(e))
+        except Exception as e:
+            raise web.HTTPError(400, str(e))
+        else:
+            if parse_json:
+                if resp.body:
+                    return json.loads(resp.body.decode('utf8', 'replace'))
+                else:
+                    # empty body is None
+                    return None
+            else:
+                return resp

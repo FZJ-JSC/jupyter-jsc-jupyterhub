@@ -18,8 +18,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 +        if exceeded:
 +            raise web.HTTPError(
 +                400,
-+                reason="User {name} already has the maximum of {limit} servers with configuration: {type} - {value}."
-+                    "  One must be deleted before a new server can be created".format(
++                reason="User {name} already has the maximum number of {limit} servers with configuration \"{type} - {value}\" running simultaneously."
++                    "  One must be stopped before a new server can be created".format(
 +                        name=user_name, limit=exceeded[2], type=exceeded[0], value=exceeded[1]
 +                ),
 +            )
@@ -45,8 +45,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 +                if exceeded:
 +                    raise web.HTTPError(
 +                        400,
-+                        reason="User {name} already has the maximum of {limit} servers with configuration: {type} - {value}."
-+                            "  One must be deleted before a new server can be created".format(
++                        reason="User {name} already has the maximum number of {limit} servers with configuration \"{type} - {value}\" running simultaneously."
++                            "  One must be stopped before a new server can be created".format(
 +                                name=user_name, limit=exceeded[2], type=exceeded[0], value=exceeded[1]
 +                        ),
 +                    )

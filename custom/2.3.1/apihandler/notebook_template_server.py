@@ -129,7 +129,7 @@ class TemplateServerAPIHandler(APIHandler):
             )
 
         redirect_url = f"{userlab_url}/lab/tree{home_path}/{notebook_name}"
-        self.write(redirect_url)
+        self.write( json.dumps({ "redirect": redirect_url}) )
         self.set_status(200)
 
     async def create_directories(self, fetch, request_kwargs, token, api_url, full_notebook_name):

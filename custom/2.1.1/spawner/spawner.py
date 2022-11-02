@@ -53,6 +53,8 @@ class BackendSpawner(Spawner):
         if self.start_id:
             state["start_id"] = self.start_id
         if self.events:
+            if type(self.events) != dict:
+                self.events = {}
             self.events["latest"] = self.latest_events
             # Clear logs older than 24h or empty logs
             events_keys = copy.deepcopy(list(self.events.keys()))
@@ -189,7 +191,9 @@ class BackendSpawner(Spawner):
                     f"Could not retrieve latest_events. Reset events list for {self._log_name}"
                 )
                 self.latest_events = []
-                self.events = []
+                self.events = {}
+        if type(self.events) != dict:
+            self.events = {}
         # Reset latest events only
         self.latest_events = []
         self.events["latest"] = self.latest_events

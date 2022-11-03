@@ -29,25 +29,32 @@ class SpawnOptionsFormAPIHandler(APIHandler):
                 }
             )
             raise web.HTTPError(404)
+        
+        # Collect information from Spawner object
         spawner = user.spawners[server_name]
         service_type = spawner.user_options.get("service", "JupyterLab/JupyterLab").split("/")[1]
+        system = spawner.user_options.get("system")
+        account = spawner.user_options.get("account")
+        interactive_partitions = user.authenticator.custom_config.get("systems", {}).get(system, {}).get("interactive_partitions", [])
         tmp = await spawner.get_options_form()
-        qargs = self.request.query_arguments
-        if "system" in qargs.keys():
-            for systemb in qargs["system"]:
-                ret = {}
-                system = systemb.decode("utf8")
-                ret[system] = {
-                    "dropdown_lists": {},
-                    "resources": {}
-                }
-                ret[system]["dropdown_lists"]["accounts"] = tmp.get("dropdown_lists", {}).get("accounts", {}).get(system, [])
-                ret[system]["dropdown_lists"]["projects"] = tmp.get("dropdown_lists", {}).get("projects", {}).get(system, {})
-                ret[system]["dropdown_lists"]["partitions"] = tmp.get("dropdown_lists", {}).get("partitions", {}).get(system, {})
-                ret[system]["dropdown_lists"]["reservations"] = tmp.get("dropdown_lists", {}).get("reservations", {}).get(system, {})
-                ret[system]["resources"] = tmp.get("resources", {}).get(service_type, {}).get(system, {})
-            if type(system) == list:
-                system = system[0]
-            self.write(json.dumps(ret))
-        else:
-            self.write(json.dumps(tmp))
+
+        # Restructure options form to account+system specific output (defined by spawner.user_options)
+        ret = {
+            "dropdown_lists": {
+                "projects": [],
+                "partitions": {},
+                "reservations": {}
+            },
+            "resources": {}
+        }
+
+        # fill in return dict
+        ret["dropdown_lists"]["projects"] = tmp.get("dropdown_lists", {}).get("projects", {}).get(system, {}).get(account, [])
+
+        # skip all interactive_partitions
+        all_partitions = tmp.get("dropdown_lists", {}).get("partitions", {}).get(system, {}).get(account, {})
+        for project in list(all_partitions.keys()):
+            ret["dropdown_lists"]["partitions"][project] = [x for x in all_partitions.get(project, []) if x not in interactive_partitions]
+        ret["dropdown_lists"]["reservations"] = tmp.get("dropdown_lists", {}).get("reservations", {}).get(system, {}).get(account, {})
+        ret["resources"] = tmp.get("resources", {}).get(service_type, {}).get(system, {})
+        self.write(json.dumps(ret))

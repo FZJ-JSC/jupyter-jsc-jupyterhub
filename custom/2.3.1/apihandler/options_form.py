@@ -49,12 +49,18 @@ class SpawnOptionsFormAPIHandler(APIHandler):
         }
 
         # fill in return dict
-        ret["dropdown_lists"]["projects"] = tmp.get("dropdown_lists", {}).get("projects", {}).get(system, {}).get(account, [])
+        # Skip projects which only have interactive partitions, these are useless for slurm jobs
+        projects = []
+        # ret["dropdown_lists"]["projects"] = tmp.get("dropdown_lists", {}).get("projects", {}).get(system, {}).get(account, [])
 
         # skip all interactive_partitions
         all_partitions = tmp.get("dropdown_lists", {}).get("partitions", {}).get(system, {}).get(account, {})
         for project in list(all_partitions.keys()):
-            ret["dropdown_lists"]["partitions"][project] = [x for x in all_partitions.get(project, []) if x not in interactive_partitions]
+            batch_partitions = [x for x in all_partitions.get(project, []) if x not in interactive_partitions]
+            if len(batch_partitions) > 0:
+                projects.append(project)
+                ret["dropdown_lists"]["partitions"][project] = batch_partitions
+        ret["dropdown_lists"]["projects"] = projects
         ret["dropdown_lists"]["reservations"] = tmp.get("dropdown_lists", {}).get("reservations", {}).get(system, {}).get(account, {})
         ret["resources"] = tmp.get("resources", {}).get(service_type, {}).get(system, {})
         self.write(json.dumps(ret))

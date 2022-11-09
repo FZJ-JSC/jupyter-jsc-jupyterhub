@@ -1,7 +1,7 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-09-01 12:32:28.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-09-01 12:33:06.000000000 +0200
-@@ -2554,11 +2554,12 @@
+--- ../jupyterhub/jupyterhub/app.py	2022-11-09 10:40:55.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-11-09 10:48:44.000000000 +0100
+@@ -2521,11 +2521,12 @@
                          spawner.server.port = 443
                      self.db.commit()
  
@@ -16,8 +16,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
                      self.log.error(
                          "%s does not appear to be running at %s, shutting it down.",
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/user.py ../jupyterhub-patched/jupyterhub/user.py
---- ../jupyterhub/jupyterhub/user.py	2022-09-01 12:32:30.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/user.py	2022-09-01 12:27:02.000000000 +0200
+--- ../jupyterhub/jupyterhub/user.py	2022-11-09 10:40:55.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/user.py	2022-11-09 10:52:58.000000000 +0100
 @@ -856,7 +856,7 @@
          spawner._waiting_for_response = True
          await self._wait_up(spawner)

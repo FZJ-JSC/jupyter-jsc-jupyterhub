@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 12:01:45.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 12:14:24.000000000 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-11-09 10:32:42.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-11-09 10:37:45.000000000 +0100
 @@ -293,6 +293,7 @@
                  "%s's server is in the process of stopping, please wait." % user_name,
              )
@@ -18,9 +18,9 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  
          if remove:
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2022-08-31 12:13:00.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2022-08-31 12:15:02.000000000 +0200
-@@ -2514,7 +2514,7 @@
+--- ../jupyterhub/jupyterhub/app.py	2022-11-09 10:09:10.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/app.py	2022-11-09 10:38:26.000000000 +0100
+@@ -2481,7 +2481,7 @@
              spawner = user.spawners[server_name]
              status = await spawner.poll()
              self.log.warning(
@@ -29,7 +29,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              )
              await self.proxy.delete_user(user, server_name)
              await user.stop(server_name)
-@@ -2965,6 +2965,9 @@
+@@ -2932,6 +2932,9 @@
              for uid, user in self.users.items():
                  for name, spawner in list(user.spawners.items()):
                      if spawner.active:
@@ -40,8 +40,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          else:
              self.log.info("Leaving single-user servers running")
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/login.py ../jupyterhub-patched/jupyterhub/handlers/login.py
---- ../jupyterhub/jupyterhub/handlers/login.py	2022-08-31 10:34:29.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/login.py	2022-08-31 12:15:35.000000000 +0200
+--- ../jupyterhub/jupyterhub/handlers/login.py	2022-11-09 10:09:10.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/login.py	2022-11-09 10:39:08.000000000 +0100
 @@ -30,7 +30,7 @@
              if spawner.active and not spawner.pending
          ]
@@ -52,8 +52,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              for server_name in active_servers:
                  futures.append(maybe_future(self.stop_single_user(user, server_name)))
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/user.py ../jupyterhub-patched/jupyterhub/user.py
---- ../jupyterhub/jupyterhub/user.py	2022-08-31 12:06:49.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/user.py	2022-08-31 12:18:18.000000000 +0200
+--- ../jupyterhub/jupyterhub/user.py	2022-11-09 10:35:10.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/user.py	2022-11-09 10:40:33.000000000 +0100
 @@ -814,7 +814,8 @@
                  self.log.warning(
                      f"{self.name}'s server failed to start"
@@ -94,14 +94,12 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
                  )
                  self.settings['statsd'].incr('spawner.failure.http_error')
              # store state again for spawner.events
-@@ -927,8 +931,8 @@
+@@ -926,7 +930,7 @@
+         spawner.stop_polling()
          spawner._stop_pending = True
-         self.spawn_stop_event.set()
  
 -        self.log.debug("Stopping %s", spawner._log_name)
--
 +        self.log.info(f"Stopping {spawner._log_name}", extra={"action": "stoporigin"})
-+        
+ 
          try:
              api_token = spawner.api_token
-             status = await spawner.poll()

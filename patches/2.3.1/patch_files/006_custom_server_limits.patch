@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 10:34:29.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 11:55:02.000000000 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-11-09 10:09:10.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-11-09 10:25:50.000000000 +0100
 @@ -25,6 +25,8 @@
  from ..utils import url_path_join
  from .base import APIHandler
@@ -27,8 +27,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          status = 202 if spawner.pending == 'spawn' else 201
          self.set_header('Content-Type', 'text/plain')
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/pages.py ../jupyterhub-patched/jupyterhub/handlers/pages.py
---- ../jupyterhub/jupyterhub/handlers/pages.py	2022-08-31 11:36:56.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2022-08-31 11:55:52.000000000 +0200
+--- ../jupyterhub/jupyterhub/handlers/pages.py	2022-11-09 10:16:07.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2022-11-09 10:29:09.000000000 +0100
 @@ -20,6 +20,7 @@
  from .base import BaseHandler
  

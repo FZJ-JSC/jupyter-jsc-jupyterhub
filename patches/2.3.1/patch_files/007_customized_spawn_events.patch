@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 11:56:53.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 12:00:19.000000000 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-11-09 10:29:42.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-11-09 10:31:49.000000000 +0100
 @@ -707,18 +707,17 @@
          # - spawner failed
          # - spawner pending start (what we expect)
@@ -48,8 +48,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  
  
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/spawner.py ../jupyterhub-patched/jupyterhub/spawner.py
---- ../jupyterhub/jupyterhub/spawner.py	2022-08-31 10:34:29.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/spawner.py	2022-08-31 12:01:21.000000000 +0200
+--- ../jupyterhub/jupyterhub/spawner.py	2022-11-09 10:09:10.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/spawner.py	2022-11-09 10:32:23.000000000 +0100
 @@ -375,6 +375,28 @@
          config=True
      )

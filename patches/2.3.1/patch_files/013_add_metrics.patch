@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 12:23:21.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 12:29:03.000000000 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-11-09 10:43:28.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-11-09 10:44:28.000000000 +0100
 @@ -4,6 +4,8 @@
  import asyncio
  import copy
@@ -10,11 +10,11 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  from datetime import datetime
  from datetime import timedelta
  from datetime import timezone
-@@ -800,6 +802,23 @@
+@@ -800,6 +802,22 @@
                  self.log.warning(
                      "Server %s didn't start for unknown reason", spawner._log_name
                  )
-+                if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
++            if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
 +                    "true",
 +                    "1",
 +                ]:
@@ -30,13 +30,12 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 +                    }
 +                    metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
 +                    self.log.info("failed", extra=metrics_extras)
-+                    
              spawner.latest_events.append(failed_event)
              await self.send_event(failed_event)
  
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 11:00:42.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 12:32:05.000000000 +0200
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-11-09 10:09:10.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-11-09 10:46:33.000000000 +0100
 @@ -4,6 +4,7 @@
  import asyncio
  import functools

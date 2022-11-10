@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/user.py ../jupyterhub-patched/jupyterhub/user.py
---- ../jupyterhub/jupyterhub/user.py	2022-08-31 10:34:29.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/user.py	2022-08-31 11:41:33.000000000 +0200
+--- ../jupyterhub/jupyterhub/user.py	2022-11-09 10:09:10.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/user.py	2022-11-09 10:22:45.000000000 +0100
 @@ -8,6 +8,7 @@
  from urllib.parse import quote
  from urllib.parse import urlparse
@@ -29,11 +29,11 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              url = await gen.with_timeout(timedelta(seconds=spawner.start_timeout), f)
              if url:
                  # get ip, port info from return value of start()
-@@ -909,6 +916,7 @@
-         spawner._check_pending = False
-         spawner.stop_polling()
-         spawner._stop_pending = True
-+        self.spawn_stop_event.set()
- 
-         self.log.debug("Stopping %s", spawner._log_name)
- 
+@@ -958,6 +965,7 @@
+                     "Error in Authenticator.post_spawn_stop for %s", self
+                 )
+             spawner._stop_pending = False
++            self.spawn_stop_event.set()
+             if not (
+                 spawner._spawn_future
+                 and (

@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/pages.py ../jupyterhub-patched/jupyterhub/handlers/pages.py
---- ../jupyterhub/jupyterhub/handlers/pages.py	2022-08-31 10:34:29.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2022-08-31 11:01:07.000000000 +0200
+--- ../jupyterhub/jupyterhub/handlers/pages.py	2022-11-09 10:09:10.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2022-11-09 10:11:43.000000000 +0100
 @@ -19,6 +19,8 @@
  from ..utils import url_path_join
  from .base import BaseHandler
@@ -33,3 +33,11 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          )
          self.finish(html)
  
+@@ -409,6 +420,7 @@
+                 page,
+                 user=user,
+                 spawner=spawner,
++                additional_spawn_options=user.authenticator.custom_config.get("additional_spawn_options", {}),
+                 progress_url=spawner._progress_url,
+                 auth_state=auth_state,
+             )

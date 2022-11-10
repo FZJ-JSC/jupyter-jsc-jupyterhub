@@ -1,10 +1,10 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 10:51:36.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 10:59:30.000000000 +0200
-@@ -1291,10 +1291,28 @@
-             parsed_scopes=self.parsed_scopes,
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-11-10 10:07:41.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-11-10 10:15:40.000000000 +0100
+@@ -1292,10 +1292,28 @@
              expanded_scopes=self.expanded_scopes,
          )
+         ns.update(dict(get_template=self.get_template))
 +        ns.update(self.incident_messages)
          if self.settings['template_vars']:
              ns.update(self.settings['template_vars'])

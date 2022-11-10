@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/pages.py ../jupyterhub-patched/jupyterhub/handlers/pages.py
---- ../jupyterhub/jupyterhub/handlers/pages.py	2022-08-31 11:02:23.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2022-08-31 11:10:21.000000000 +0200
+--- ../jupyterhub/jupyterhub/handlers/pages.py	2022-11-09 10:12:19.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2022-11-09 10:14:47.000000000 +0100
 @@ -20,6 +20,7 @@
  from .base import BaseHandler
  
@@ -45,7 +45,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  
          # First, check for previous failure.
          if not spawner.active and spawner._failed:
-@@ -470,7 +471,7 @@
+@@ -471,7 +472,7 @@
      @needs_scope('admin:users')
      @needs_scope('admin:servers')
      async def get(self):
@@ -54,7 +54,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          html = await self.render_template(
              'admin.html',
              current_user=self.current_user,
-@@ -555,7 +556,7 @@
+@@ -556,7 +557,7 @@
  
          oauth_clients = sorted(oauth_clients, key=sort_key, reverse=True)
  

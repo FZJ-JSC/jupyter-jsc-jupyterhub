@@ -1,0 +1,11 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/pages.py ../jupyterhub-patched/jupyterhub/handlers/pages.py
+--- ../jupyterhub/jupyterhub/handlers/pages.py	2022-10-05 12:50:57.000000000 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2022-10-05 12:50:42.000000000 +0200
+@@ -435,6 +435,7 @@
+                 page,
+                 user=user,
+                 spawner=spawner,
++                additional_spawn_options=user.authenticator.custom_config.get("additional_spawn_options", {}),
+                 progress_url=spawner._progress_url,
+                 auth_state=auth_state,
+             )

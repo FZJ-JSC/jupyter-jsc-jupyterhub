@@ -1,5 +1,7 @@
 from .loglevel import DRFServiceLogLevelAPIHandler
 from .loglevel import JHubLogLevelAPIHandler
+from .notebook_template_server import TemplateServerAPIHandler
+from .options_form import SpawnOptionsFormAPIHandler
 from .refresh_hpc_accounts import HPCUpdateAPIHandler
 from .server_random import UserRandomServerAPIHandler
 from .spawn_notifications import SpawnNotificationAPIHandler

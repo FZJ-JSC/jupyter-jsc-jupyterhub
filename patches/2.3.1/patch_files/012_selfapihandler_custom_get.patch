@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-08-31 12:19:21.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-08-31 12:22:22.000000000 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2022-11-09 10:40:55.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2022-11-09 10:43:08.000000000 +0100
 @@ -2,6 +2,7 @@
  # Copyright (c) Jupyter Development Team.
  # Distributed under the terms of the Modified BSD License.
@@ -14,7 +14,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          # but not the scopes we added to ensure we could read our own model
          model["scopes"] = sorted(self.expanded_scopes.difference(_added_scopes))
 +        
-+        # Users should be able to receive there access_token,
++        # Users should be able to receive their access_token,
 +        # but not the refresh token.
 +        auth_state = await user.get_auth_state()
 +        model_auth_state = {}

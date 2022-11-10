@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2022-08-31 10:34:29.000000000 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-08-31 10:50:15.000000000 +0200
+--- ../jupyterhub/jupyterhub/handlers/base.py	2022-11-10 09:58:06.000000000 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2022-11-10 10:03:48.000000000 +0100
 @@ -5,6 +5,7 @@
  import functools
  import json
@@ -21,7 +21,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 +        if not os.path.isfile(os.path.join(static_path, host, path)):
 +            host = 'default'
 +        return url_path_join(base_path, 'static', host, path)
-+        
++    
      def get_template(self, name, sync=False):
          """
          Return the jinja template object for a given name
@@ -41,3 +41,11 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
  
      def render_template(self, name, sync=False, **ns):
          """
+@@ -1274,6 +1291,7 @@
+             parsed_scopes=self.parsed_scopes,
+             expanded_scopes=self.expanded_scopes,
+         )
++        ns.update(dict(get_template=self.get_template))
+         if self.settings['template_vars']:
+             ns.update(self.settings['template_vars'])
+         return ns

@@ -44,8 +44,8 @@ def get_system_infos(
         )
     )
     # Then add K8s systems
-    for system in systems_config:
-        if system not in systems_all:
+    for system, config in systems_config.items():
+        if system not in systems_all and config.get("drf-service", "") != "unicoremgr":
             systems_all.append(system)
 
     # Remove systems which are in maintenance

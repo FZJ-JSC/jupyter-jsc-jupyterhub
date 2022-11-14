@@ -83,7 +83,7 @@ class VOHandler(BaseHandler):
     async def get(self):
         user = self.current_user
         auth_state = await get_user_auth_state_with_vos(user)
-        vo_details_config = custom_config.get("vos", {})
+        vo_details_config = user.authenticator.custom_config.get("vos", {})
         vo_details = {}
         for vo_name in vo_available:
             vo_details[vo_name] = (

@@ -7,6 +7,8 @@ from jupyterhub.scopes import needs_scope
 
 
 async def get_user_auth_state_with_vos(user):
+    if not user:
+        return {}
     auth_state = await user.get_auth_state()
     custom_config = user.authenticator.custom_config
     vo_active, vo_available = get_vos(auth_state, custom_config, user.name, user.admin)
@@ -16,7 +18,6 @@ async def get_user_auth_state_with_vos(user):
     if "refresh_token" in auth_state.keys():
         del auth_state["refresh_token"]
     return auth_state
-
 
 async def _create_ns(user):
     ns = dict(user=user)
@@ -81,13 +82,7 @@ class VOHandler(BaseHandler):
     @web.authenticated
     async def get(self):
         user = self.current_user
-        auth_state = await user.get_auth_state()
-        custom_config = user.authenticator.custom_config
-        vo_active, vo_available = get_vos(auth_state, custom_config, user.name, user.admin)
-        auth_state["vo_active"] = vo_active
-        auth_state["vo_available"] = vo_available
-        await user.save_auth_state(auth_state)
-
+        auth_state = await get_user_auth_state_with_vos(user)
         vo_details_config = custom_config.get("vos", {})
         vo_details = {}
         for vo_name in vo_available:

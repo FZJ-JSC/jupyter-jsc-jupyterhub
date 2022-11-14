@@ -13,6 +13,8 @@ async def get_user_auth_state_with_vos(user):
     auth_state["vo_active"] = vo_active
     auth_state["vo_available"] = vo_available
     await user.save_auth_state(auth_state)
+    if "refresh_token" in auth_state.keys():
+        del auth_state["refresh_token"]
     return auth_state
 
 

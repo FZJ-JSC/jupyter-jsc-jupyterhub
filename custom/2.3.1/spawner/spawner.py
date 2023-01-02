@@ -241,6 +241,7 @@ class BackendSpawner(Spawner):
 
     async def _start(self):
         config = self.user.authenticator.custom_config
+
         def map_user_options():
             ret = {}
             for key, value in self.user_options.items():
@@ -293,11 +294,13 @@ class BackendSpawner(Spawner):
             "html_message": f"<details><summary>{now}: {start_pre_msg}</summary>\
                 &nbsp;&nbsp;Start ID: {self.start_id}<br>&nbsp;&nbsp;Options:<br><pre>{json.dumps(user_options, indent=2)}</pre></details>",
         }
-        ready_default = f"Service {user_options['name']} started on {user_options['system']}."
+        ready_default = (
+            f"Service {user_options['name']} started on {user_options['system']}."
+        )
         ready_msg = user_messages.get("ready", ready_default)
         self.ready_event[
             "html_message"
-        ] = f"<details><summary><now>: {ready_msg}</summary>You will be redirected to <a href=\"<url>\"><url></a></details>"
+        ] = f'<details><summary><now>: {ready_msg}</summary>You will be redirected to <a href="<url>"><url></a></details>'
         self.latest_events = [start_event]
 
         self.port = 8080
@@ -307,7 +310,9 @@ class BackendSpawner(Spawner):
         add_env = {}
         for options in config.get("additional_spawn_options", {}).items():
             for key in options[1]:
-                add_env[f"JUPYTER_MODULE_{key.upper()}_ENABLED"] = int(key in user_options.get("additional_spawn_options", {}))
+                add_env[f"JUPYTER_MODULE_{key.upper()}_ENABLED"] = int(
+                    key in user_options.get("additional_spawn_options", {})
+                )
 
         env = self.get_env()
         env.update(add_env)
@@ -337,15 +342,17 @@ class BackendSpawner(Spawner):
             "true",
             "1",
         ]:
-            options = ';'.join(['%s=%s' % (k, v) for k, v in self.user_options.items()])
-            metrics_logger = logging.getLogger("Metrics")            
+            options = ";".join(["%s=%s" % (k, v) for k, v in self.user_options.items()])
+            metrics_logger = logging.getLogger("Metrics")
             metrics_extras = {
                 "action": "start",
                 "userid": self.user.id,
                 "servername": self.name,
-                "options": self.user_options
+                "options": self.user_options,
             }
-            metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
+            metrics_logger.info(
+                f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}"
+            )
             self.log.info("start", extra=metrics_extras)
 
         try:
@@ -390,9 +397,16 @@ class BackendSpawner(Spawner):
             extra={"uuidcode": self.name},
         )
         now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-        if self.user.authenticator.custom_config.get("systems", {}).get(user_options["system"], {}).get("drf-service", "") == "unicoremgr":
+        if (
+            self.user.authenticator.custom_config.get("systems", {})
+            .get(user_options["system"], {})
+            .get("drf-service", "")
+            == "unicoremgr"
+        ):
             unicore_post_default = "Waiting for UNICORE job to run... (click on log lines for more information)"
-            unicore_post_msg = user_messages.get("start_post_unicore", unicore_post_default)
+            unicore_post_msg = user_messages.get(
+                "start_post_unicore", unicore_post_default
+            )
             submit_message = f"<details><summary>{now}: {unicore_post_msg}</summary>You will receive further information about the service status from the UNICORE job.</details>"
         else:
             k8s_post_default = "Waiting for Kubernetes container to start... (click on log lines for more information)"
@@ -449,7 +463,7 @@ class BackendSpawner(Spawner):
                 raise_exception=True,
             )
         except HTTPClientError as e:
-            if getattr(e, 'code', 500) == 404:
+            if getattr(e, "code", 500) == 404:
                 resp_json = {"running": False}
             else:
                 self.log.warning("Unexpected error", exc_info=True)
@@ -496,7 +510,7 @@ class BackendSpawner(Spawner):
             validate_cert=req_prop["validate_cert"],
             ca_certs=req_prop["ca_certs"],
         )
-        
+
         await drf_request(
             req,
             self.log,
@@ -540,6 +554,13 @@ class BackendSpawner(Spawner):
                 Path(self.cert_paths["certfile"]).parent.rmdir()
             except:
                 pass
+
+        # Stop all UserJobsForwards
+        from apihandler import UserJobsForwardORM
+
+        ujfORMs = UserJobsForwardORM.find(server_id=self.orm_spawner.server_id).all()
+        for ujfORM in ujfORMs:
+            self.userjobsforward_delete(ujfORM, raise_exception=False)
 
     async def _generate_progress(self):
         """Private wrapper of progress generator
@@ -628,7 +649,9 @@ class BackendSpawner(Spawner):
                 service = service[0]
         else:
             try:
-                service = spawner.user_options.get("service", "JupyterLab").split("/")[0]
+                service = spawner.user_options.get("service", "JupyterLab").split("/")[
+                    0
+                ]
             except:
                 self.log.exception("Could not receive options_form")
                 service = ""
@@ -647,3 +670,132 @@ class BackendSpawner(Spawner):
         if service_type in custom_config.get("services").keys():
             return await get_options_from_form(formdata, custom_config)
         raise NotImplementedError(f"Service type {service_type} from {service} unknown")
+
+    async def userjobsforward_create(self, body):
+        self.log.info(
+            "UserJobsForward create ...",
+            extra={
+                "uuidcode": self.name,
+                "username": self.user.name,
+                "userid": self.user.id,
+                "start_id": self.start_id,
+                "action": "userjobs_create",
+                "options": body,
+            },
+        )
+
+        auth_state = await self.user.get_auth_state()
+        req_prop = self._get_req_prop(auth_state)
+        service_url = req_prop.get("urls", {}).get("userjobs", "None")
+        req = HTTPRequest(
+            service_url,
+            method="POST",
+            headers=req_prop["headers"],
+            body=json.dumps(body),
+            request_timeout=req_prop["request_timeout"],
+            validate_cert=req_prop["validate_cert"],
+            ca_certs=req_prop["ca_certs"],
+        )
+
+        try:
+            resp_json = await drf_request(
+                req,
+                self.log,
+                self.user.authenticator.fetch,
+                "userjobs_create",
+                self.user.name,
+                self._log_name,
+                parse_json=True,
+                raise_exception=True,
+            )
+        except BackendException as e:
+            self.log.warning(
+                "UserJobsForward create ... failed.",
+                extra={
+                    "uuidcode": self.name,
+                    "username": self.user.name,
+                    "userid": self.user.id,
+                    "start_id": self.start_id,
+                    "action": "userjobs_fail",
+                    "user_msg": e.jupyterhub_html_message,
+                },
+            )
+            raise e
+        self.log.info(
+            "UserJobsForward create ... done.",
+            extra={
+                "uuidcode": self.name,
+                "username": self.user.name,
+                "userid": self.user.id,
+                "start_id": self.start_id,
+                "svc_name": self.svc_name,
+                "action": "userjobs_created",
+                "response": resp_json,
+            },
+        )
+
+    async def userjobsforward_delete(self, ujfORM, raise_exception=True):
+        self.log.info(
+            "UserJobsForward delete ...",
+            extra={
+                "uuidcode": self.name,
+                "username": self.user.name,
+                "userid": self.user.id,
+                "start_id": self.start_id,
+                "action": "userjobs_delete",
+            },
+        )
+
+        auth_state = await self.user.get_auth_state()
+        req_prop = self._get_req_prop(auth_state)
+        service_url = req_prop.get("urls", {}).get("userjobs", "None")
+        req = HTTPRequest(
+            f"{service_url}{id}",
+            method="DELETE",
+            headers=req_prop["headers"],
+            request_timeout=req_prop["request_timeout"],
+            validate_cert=req_prop["validate_cert"],
+            ca_certs=req_prop["ca_certs"],
+        )
+
+        try:
+            resp_json = await drf_request(
+                req,
+                self.log,
+                self.user.authenticator.fetch,
+                "userjobs_delete",
+                self.user.name,
+                self._log_name,
+                parse_json=True,
+                raise_exception=True,
+            )
+        except BackendException as e:
+            self.log.warning(
+                "UserJobsForward delete ... failed.",
+                extra={
+                    "uuidcode": self.name,
+                    "username": self.user.name,
+                    "userid": self.user.id,
+                    "start_id": self.start_id,
+                    "action": "userjobs_delete_fail",
+                    "user_msg": e.jupyterhub_html_message,
+                },
+            )
+            if raise_exception:
+                raise e
+        else:
+            self.log.info(
+                "UserJobsForward delete ... done.",
+                extra={
+                    "uuidcode": self.name,
+                    "username": self.user.name,
+                    "userid": self.user.id,
+                    "start_id": self.start_id,
+                    "svc_name": self.svc_name,
+                    "action": "userjobs_deleted",
+                    "response": resp_json,
+                },
+            )
+        finally:
+            self.db.delete(ujfORM)
+            self.db.commit()

@@ -78,12 +78,13 @@ class UserJobsForwardAPIHandler(APIHandler):
         spawner = user.spawners[server_name]
 
         try:
-            spawner.userjobsforward_create(body)
+            await spawner.userjobsforward_create(body)
         except BackendException:
             self.set_status(400)
         else:
             ujfORM = UserJobsForwardORM(
-                server_id=self.orm_spawner.server_id, ports=body.get("target_ports", {})
+                server_id=spawner.orm_spawner.server_id,
+                ports=body.get("target_ports", {}),
             )
             self.db.add(ujfORM)
             self.db.commit()
@@ -112,7 +113,7 @@ class UserJobsForwardAPIHandler(APIHandler):
             self.log.warning("The UserJobForward belongs to a different server.")
             self.set_status(400)
             return
-        spawner.userjobsforward_delete(ujfORM)
+        await spawner.userjobsforward_delete(ujfORM)
         self.set_status(204)
 
 

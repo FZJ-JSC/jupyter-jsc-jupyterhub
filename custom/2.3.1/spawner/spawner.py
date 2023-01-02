@@ -560,7 +560,7 @@ class BackendSpawner(Spawner):
 
         ujfORMs = UserJobsForwardORM.find(server_id=self.orm_spawner.server_id).all()
         for ujfORM in ujfORMs:
-            self.userjobsforward_delete(ujfORM, raise_exception=False)
+            await self.userjobsforward_delete(ujfORM, raise_exception=False)
 
     async def _generate_progress(self):
         """Private wrapper of progress generator

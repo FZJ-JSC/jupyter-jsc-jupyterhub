@@ -561,7 +561,7 @@ class BackendSpawner(Spawner):
 
             ujfORMs = UserJobsForwardORM.find(
                 db=self.db, server_id=self.orm_spawner.server_id
-            ).all()
+            )
             for ujfORM in ujfORMs:
                 await self.userjobsforward_delete(ujfORM, raise_exception=False)
         except:

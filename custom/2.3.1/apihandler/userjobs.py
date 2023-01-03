@@ -111,7 +111,11 @@ class UserJobsForwardAPIHandler(APIHandler):
             raise web.HTTPError(404)
         user = self.find_user(user_name)
         spawner = user.spawners[server_name]
-        ujfORM = UserJobsForwardORM.find(id=id).first()
+        ujfORM = (
+            self.db.query(UserJobsForwardORM)
+            .filter(UserJobsForwardORM.id == id)
+            .first()
+        )
         if ujfORM is None:
             self.set_status(404)
             return

@@ -31,7 +31,7 @@ class UserJobsORM(Base):
         return "<{} - UserJobs for {}>".format(self.id, self.server_id)
 
     @classmethod
-    def get_all(cls, db, server_id):
+    def find(cls, db, server_id):
         """Find all user jobs for one server.
         Returns None if not found.
         """
@@ -51,7 +51,7 @@ class UserJobsForwardORM(Base):
         return "<{} - UserJobs for {}>".format(self.id, self.server_id)
 
     @classmethod
-    def get_all(cls, db, server_id):
+    def find(cls, db, server_id):
         """Find all user jobs forwards for one server.
         Returns None if not found.
         """

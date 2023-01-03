@@ -13,6 +13,7 @@ from jupyterhub.scopes import needs_scope
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
+from sqlalchemy import Unicode
 from tornado import web
 from tornado.httpclient import HTTPRequest
 
@@ -43,6 +44,7 @@ class UserJobsForwardORM(Base):
     id = Column(Integer, primary_key=True)
 
     server_id = Column(Integer, ForeignKey("servers.id", ondelete="CASCADE"))
+    suffix = Column(Unicode(255), default="")
     ports = Column(JSONDict)
 
     def __repr__(self):
@@ -82,7 +84,8 @@ class UserJobsForwardAPIHandler(APIHandler):
         user = self.find_user(user_name)
         spawner = user.spawners[server_name]
         body["service"] = spawner.name
-        body["suffix"] = uuid.uuid4().hex[:8]
+        suffix = uuid.uuid4().hex[:8]
+        body["suffix"] = suffix
         try:
             await spawner.userjobsforward_create(body)
         except BackendException:
@@ -90,6 +93,7 @@ class UserJobsForwardAPIHandler(APIHandler):
         else:
             ujfORM = UserJobsForwardORM(
                 server_id=spawner.orm_spawner.server_id,
+                suffix=suffix,
                 ports=body.get("target_ports", {}),
             )
             self.db.add(ujfORM)

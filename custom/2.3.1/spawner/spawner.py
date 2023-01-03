@@ -499,6 +499,18 @@ class BackendSpawner(Spawner):
     async def _stop(self):
         auth_state = await self.user.get_auth_state()
 
+        # Stop all UserJobsForwards
+        try:
+            from apihandler import UserJobsForwardORM
+
+            ujfORMs = UserJobsForwardORM.find(
+                db=self.db, server_id=self.orm_spawner.server_id
+            )
+            for ujfORM in ujfORMs:
+                await self.userjobsforward_delete(ujfORM, raise_exception=False)
+        except:
+            self.log.exception("Could not delete userjobsforwards")
+
         req_prop = self._get_req_prop(auth_state)
         service_url = req_prop.get("urls", {}).get("services", "None")
 
@@ -554,18 +566,6 @@ class BackendSpawner(Spawner):
                 Path(self.cert_paths["certfile"]).parent.rmdir()
             except:
                 pass
-
-        # Stop all UserJobsForwards
-        try:
-            from apihandler import UserJobsForwardORM
-
-            ujfORMs = UserJobsForwardORM.find(
-                db=self.db, server_id=self.orm_spawner.server_id
-            )
-            for ujfORM in ujfORMs:
-                await self.userjobsforward_delete(ujfORM, raise_exception=False)
-        except:
-            self.log.exception("Could not delete userjobsforwards")
 
     async def _generate_progress(self):
         """Private wrapper of progress generator
@@ -755,7 +755,7 @@ class BackendSpawner(Spawner):
         req_prop = self._get_req_prop(auth_state)
         service_url = req_prop.get("urls", {}).get("userjobs", "None")
         req = HTTPRequest(
-            f"{service_url}{id}",
+            f"{service_url}{self.name}-{ujfORM.suffix}",
             method="DELETE",
             headers=req_prop["headers"],
             request_timeout=req_prop["request_timeout"],

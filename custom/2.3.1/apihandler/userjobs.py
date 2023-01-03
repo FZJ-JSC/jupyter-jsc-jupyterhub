@@ -99,11 +99,15 @@ class UserJobsForwardAPIHandler(APIHandler):
             self.db.add(ujfORM)
             self.db.commit()
             self.set_status(201)
-            self.set_header("Location", ujfORM.id)
+            self.set_header("Location", f"{spawner.name}-{suffix}")
+            self.write({"Service": f"{spawner.name}-{suffix}"})
+            self.flush()
 
     @needs_scope("access:servers")
-    async def delete(self, user_name, server_name, id):
+    async def delete(self, user_name, server_name_suffix):
         self.set_header("Cache-Control", "no-cache")
+        server_name = server_name_suffix[:-9]
+        suffix = server_name_suffix[-8:]
         if server_name is None:
             server_name = ""
         user = self.find_user(user_name)
@@ -117,7 +121,8 @@ class UserJobsForwardAPIHandler(APIHandler):
         spawner = user.spawners[server_name]
         ujfORM = (
             self.db.query(UserJobsForwardORM)
-            .filter(UserJobsForwardORM.id == id)
+            .filter(UserJobsForwardORM.server_id == spawner.orm_spawner.server_id)
+            .filter(UserJobsForwardORM.suffix == suffix)
             .first()
         )
         if ujfORM is None:

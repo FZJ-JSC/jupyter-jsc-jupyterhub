@@ -1,9 +1,7 @@
 # UserJobs allow users to connect to their running Slurm Jobs from JupyterLabs on the HDF-Cloud
 # We want to limit the possible connections. 5 Forwards / JupyterLab . 5 Ports / Forward.
-import datetime
 import json
-import logging
-import os
+import uuid
 
 from custom_utils.backend_services import BackendException
 from custom_utils.backend_services import drf_request
@@ -74,9 +72,17 @@ class UserJobsForwardAPIHandler(APIHandler):
         body_req = self.request.body.decode("utf8")
         body = json.loads(body_req) if body_req else {}
 
+        required_keys = ["target_ports", "hostname", "target_node"]
+        for key in required_keys:
+            if key not in body.keys():
+                self.log.warning(f"Missing key: {key}")
+                self.set_status(400)
+                return
+
         user = self.find_user(user_name)
         spawner = user.spawners[server_name]
-
+        body["service"] = spawner.name
+        body["suffix"] = uuid.uuid4().hex[:8]
         try:
             await spawner.userjobsforward_create(body)
         except BackendException:

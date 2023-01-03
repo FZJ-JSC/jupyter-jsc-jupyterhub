@@ -556,11 +556,16 @@ class BackendSpawner(Spawner):
                 pass
 
         # Stop all UserJobsForwards
-        from apihandler import UserJobsForwardORM
+        try:
+            from apihandler import UserJobsForwardORM
 
-        ujfORMs = UserJobsForwardORM.find(server_id=self.orm_spawner.server_id).all()
-        for ujfORM in ujfORMs:
-            await self.userjobsforward_delete(ujfORM, raise_exception=False)
+            ujfORMs = UserJobsForwardORM.find(
+                db=self.db, server_id=self.orm_spawner.server_id
+            ).all()
+            for ujfORM in ujfORMs:
+                await self.userjobsforward_delete(ujfORM, raise_exception=False)
+        except:
+            self.log.exception("Could not delete userjobsforwards")
 
     async def _generate_progress(self):
         """Private wrapper of progress generator

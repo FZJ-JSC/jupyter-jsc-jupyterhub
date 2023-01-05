@@ -126,11 +126,24 @@ class BackendSpawner(Spawner):
     def _status_update_url(self):
         return self.status_update_url(self.name)
 
+    def userjobs_forward_url(self, server_name=""):
+        """API path for userjobs forward endpoint for a server with a given name"""
+        url_parts = ["users", self.user.escaped_name, "servers"]
+        if server_name:
+            url_parts.append(server_name)
+        url_parts.append("userjobsforward")
+        return url_path_join(*url_parts)
+
+    @property
+    def _userjobs_forward_url(self):
+        return self.userjobs_forward_url(self.name)
+
     def get_env(self):
         env = super().get_env()
         env["JUPYTERHUB_STATUS_URL"] = self._status_update_url
         env["JUPYTERHUB_USER_ID"] = self.user.orm_user.id
         env["JUPYTERHUB_STAGE"] = os.environ.get("JUPYTERHUB_STAGE", "")
+        env["JUPYTERHUB_USERJOBSFORWARD_URL"] = self._userjobs_forward_url
         return env
 
     def get_svc_name(self):
@@ -152,12 +165,14 @@ class BackendSpawner(Spawner):
         k8s_tunnel_deployment_namespace = os.environ.get("TUNNEL_DEPLOYMENT_NAMESPACE")
         return f".{k8s_tunnel_deployment_namespace}.svc"
 
-    def _get_req_prop(self, auth_state):
+    def _get_req_prop(self, auth_state, system=None, uuidcode=None):
         custom_config = self.user.authenticator.custom_config
+
+        if not system:
+            system = self.user_options["system"]
+
         drf_service = (
-            custom_config.get("systems", {})
-            .get(self.user_options["system"], {})
-            .get("drf-service", None)
+            custom_config.get("systems", {}).get(system, {}).get("drf-service", None)
         )
         send_access_token = (
             custom_config.get("drf-services", {})
@@ -165,8 +180,12 @@ class BackendSpawner(Spawner):
             .get("send_access_token", False)
         )
         access_token = auth_state["access_token"] if send_access_token else None
+
+        if not uuidcode:
+            uuidcode = self.name
+
         req_prop = drf_request_properties(
-            drf_service, custom_config, self.log, self.name, access_token
+            drf_service, custom_config, self.log, uuidcode, access_token
         )
         return req_prop
 
@@ -676,6 +695,123 @@ class BackendSpawner(Spawner):
             return await get_options_from_form(formdata, custom_config)
         raise NotImplementedError(f"Service type {service_type} from {service} unknown")
 
+    async def userjobs_create(self, body, userjobs_name, suffix):
+        self.log.info(
+            "UserJobs create ...",
+            extra={
+                "uuidcode": userjobs_name,
+                "username": self.user.name,
+                "userid": self.user.id,
+                "start_id": suffix,
+                "action": "userjobs_create",
+                "options": body,
+            },
+        )
+
+        auth_state = await self.user.get_auth_state()
+        req_prop = self._get_req_prop(
+            auth_state, system=body["user_options"]["system"], uuidcode=userjobs_name
+        )
+        service_url = req_prop.get("urls", {}).get("services", "None")
+
+        env = self.get_env()
+        if "target_ports" in body.keys():
+            env["JUPYTERHUB_USERJOBSFORWARD_PORTS"] = json.dumps(body["target_ports"])
+            env["JUPYTERHUB_USERJOBSFORWARD_SUFFIX"] = suffix
+
+        popen_kwargs = {
+            "auth_state": auth_state,
+            "env": env,
+            "user_options": body["user_options"],
+            "start_id": suffix,
+            "input_files": body["input_files"],
+        }
+
+        req = HTTPRequest(
+            service_url,
+            method="POST",
+            headers=req_prop["headers"],
+            body=json.dumps(popen_kwargs),
+            request_timeout=req_prop["request_timeout"],
+            validate_cert=req_prop["validate_cert"],
+            ca_certs=req_prop["ca_certs"],
+        )
+
+        resp_json = await drf_request(
+            req,
+            self.log,
+            self.user.authenticator.fetch,
+            "userjobs_create",
+            self.user.name,
+            self._log_name,
+            parse_json=True,
+            raise_exception=True,
+        )
+
+        self.log.info(
+            "UserJobs create ... done",
+            extra={
+                "uuidcode": userjobs_name,
+                "username": self.user.name,
+                "userid": self.user.id,
+                "start_id": suffix,
+                "action": "userjobs_create",
+                "options": body,
+                "response": resp_json,
+            },
+        )
+
+    async def userjobs_get(self, userjobs_name):
+        auth_state = await self.user.get_auth_state()
+
+        req_prop = self._get_req_prop(auth_state, uuidcode=userjobs_name)
+        service_url = req_prop.get("urls", {}).get("services", "None")
+
+        req = HTTPRequest(
+            f"{service_url}{userjobs_name}/",
+            method="GET",
+            headers=req_prop["headers"],
+            request_timeout=req_prop["request_timeout"],
+            validate_cert=req_prop["validate_cert"],
+            ca_certs=req_prop["ca_certs"],
+        )
+        resp_json = await drf_request(
+            req,
+            self.log,
+            self.user.authenticator.fetch,
+            "userjobs_poll",
+            self.user.name,
+            self._log_name,
+            parse_json=True,
+            raise_exception=True,
+        )
+        return resp_json
+
+    async def userjobs_delete(self, userjobs_name):
+        auth_state = await self.user.get_auth_state()
+
+        req_prop = self._get_req_prop(auth_state, uuidcode=userjobs_name)
+        service_url = req_prop.get("urls", {}).get("services", "None")
+
+        req = HTTPRequest(
+            f"{service_url}{userjobs_name}/",
+            method="DELETE",
+            headers=req_prop["headers"],
+            request_timeout=req_prop["request_timeout"],
+            validate_cert=req_prop["validate_cert"],
+            ca_certs=req_prop["ca_certs"],
+        )
+        await drf_request(
+            req,
+            self.log,
+            self.user.authenticator.fetch,
+            "userjobs_stop",
+            self.user.name,
+            self._log_name,
+            parse_json=True,
+            raise_exception=False,
+        )
+
     async def userjobsforward_create(self, body):
         self.log.info(
             "UserJobsForward create ...",
@@ -684,7 +820,7 @@ class BackendSpawner(Spawner):
                 "username": self.user.name,
                 "userid": self.user.id,
                 "start_id": self.start_id,
-                "action": "userjobs_create",
+                "action": "userjobsforward_create",
                 "options": body,
             },
         )
@@ -707,7 +843,7 @@ class BackendSpawner(Spawner):
                 req,
                 self.log,
                 self.user.authenticator.fetch,
-                "userjobs_create",
+                "userjobsforward_create",
                 self.user.name,
                 self._log_name,
                 parse_json=True,
@@ -721,7 +857,7 @@ class BackendSpawner(Spawner):
                     "username": self.user.name,
                     "userid": self.user.id,
                     "start_id": self.start_id,
-                    "action": "userjobs_fail",
+                    "action": "userjobsforward_fail",
                     "user_msg": e.jupyterhub_html_message,
                 },
             )
@@ -734,7 +870,7 @@ class BackendSpawner(Spawner):
                 "userid": self.user.id,
                 "start_id": self.start_id,
                 "svc_name": self.svc_name,
-                "action": "userjobs_created",
+                "action": "userjobsforward_created",
                 "response": resp_json,
             },
         )
@@ -747,7 +883,7 @@ class BackendSpawner(Spawner):
                 "username": self.user.name,
                 "userid": self.user.id,
                 "start_id": self.start_id,
-                "action": "userjobs_delete",
+                "action": "userjobsforward_delete",
             },
         )
 
@@ -768,7 +904,7 @@ class BackendSpawner(Spawner):
                 req,
                 self.log,
                 self.user.authenticator.fetch,
-                "userjobs_delete",
+                "userjobsforward_delete",
                 self.user.name,
                 self._log_name,
                 parse_json=True,
@@ -782,7 +918,7 @@ class BackendSpawner(Spawner):
                     "username": self.user.name,
                     "userid": self.user.id,
                     "start_id": self.start_id,
-                    "action": "userjobs_delete_fail",
+                    "action": "userjobsforward_delete_fail",
                     "user_msg": e.jupyterhub_html_message,
                 },
             )
@@ -797,7 +933,7 @@ class BackendSpawner(Spawner):
                     "userid": self.user.id,
                     "start_id": self.start_id,
                     "svc_name": self.svc_name,
-                    "action": "userjobs_deleted",
+                    "action": "userjobsforward_deleted",
                     "response": resp_json,
                 },
             )

@@ -107,55 +107,49 @@ class UserJobsForwardAPIHandler(APIHandler):
             self.flush()
 
     @needs_scope("access:servers")
-    async def get(self, id):
+    async def get(self, id=None):
         user = self.current_user
         if user is None:
             raise web.HTTPError(403)
-
-        ujfORM = (
-            self.db.query(UserJobsForwardORM)
-            .filter(UserJobsForwardORM.id == id)
-            .first()
-        )
-        if ujfORM is None:
-            self.set_status(404)
-            return
-        if ujfORM.user_id != user.id:
-            self.set_status(403)
-            return
-        ret = {
-            "id": ujfORM.id,
-            "service": ujfORM.service,
-            "ports": ujfORM.ports,
-            "system": ujfORM.system,
-            "userjobs_id": ujfORM.userjobs_id,
-        }
-        self.write(ret)
-        self.set_status(200)
-
-    @needs_scope("access:servers")
-    async def get(self):
-        user = self.current_user
-        if user is None:
-            raise web.HTTPError(403)
-
-        ujfORMs = (
-            self.db.query(UserJobsForwardORM)
-            .filter(UserJobsForwardORM.user_id == user.id)
-            .all()
-        )
-        if ujfORMs is None:
-            self.set_status(404)
-            return
-        ret = {}
-        for ujf in ujfORMs:
-            ret[ujf.id] = {
-                "id": ujf.id,
-                "service": ujf.service,
-                "ports": ujf.ports,
-                "system": ujf.system,
-                "userjobs_id": ujf.userjobs_id,
+        if id:
+            ujfORM = (
+                self.db.query(UserJobsForwardORM)
+                .filter(UserJobsForwardORM.id == id)
+                .first()
+            )
+            if ujfORM is None:
+                self.set_status(404)
+                return
+            if ujfORM.user_id != user.id:
+                self.set_status(403)
+                return
+            ret = {
+                "id": ujfORM.id,
+                "service": ujfORM.service,
+                "ports": ujfORM.ports,
+                "system": ujfORM.system,
+                "userjobs_id": ujfORM.userjobs_id,
             }
+            self.write(ret)
+            self.set_status(200)
+        else:
+            ujfORMs = (
+                self.db.query(UserJobsForwardORM)
+                .filter(UserJobsForwardORM.user_id == user.id)
+                .all()
+            )
+            if ujfORMs is None:
+                self.set_status(404)
+                return
+            ret = {}
+            for ujf in ujfORMs:
+                ret[ujf.id] = {
+                    "id": ujf.id,
+                    "service": ujf.service,
+                    "ports": ujf.ports,
+                    "system": ujf.system,
+                    "userjobs_id": ujf.userjobs_id,
+                }
         self.write(ret)
         self.set_status(200)
 
@@ -374,44 +368,48 @@ class UserJobsAPIHandler(APIHandler):
             self.flush()
 
     @needs_scope("access:servers")
-    async def get(self, id):
+    async def get(self, id=None):
         user = self.current_user
         if user is None:
             raise web.HTTPError(403)
 
-        ujORM = self.db.query(UserJobsORM).filter(UserJobsORM.id == id).first()
-        if ujORM is None:
-            self.set_status(404)
-            return
-        if ujORM.user_id != user.id:
-            self.set_status(403)
-            return
-        ret = await self.userjobs_get(user, ujORM)
-        self.write(ret)
-        self.set_status(200)
-
-    @needs_scope("access:servers")
-    async def get(self):
-        user = self.current_user
-        if user is None:
-            raise web.HTTPError(403)
-
-        ujORMs = self.db.query(UserJobsORM).filter(UserJobsORM.user_id == user.id).all()
-        if ujORMs is None:
-            self.set_status(404)
-            return
-        ret = {}
-        for uj in ujORMs:
-            if uj.running:
-                ret[uj.id] = await self.userjobs_get(user, uj)
+        if id:
+            ujORM = self.db.query(UserJobsORM).filter(UserJobsORM.id == id).first()
+            if ujORM is None:
+                self.set_status(404)
+                return
+            if ujORM.user_id != user.id:
+                self.set_status(403)
+                return
+            if ujORM.running:
+                ret = await self.userjobs_get(user, ujORM)
             else:
-                ret[uj.id] = {
-                    "id": uj.id,
-                    "running": uj.running,
-                    "bss_details": uj.bss_details,
-                    "result": uj.result,
-                    "system": uj.system,
+                ret = {
+                    "id": ujORM.id,
+                    "running": ujORM.running,
+                    "bss_details": ujORM.bss_details,
+                    "result": ujORM.result,
+                    "system": ujORM.system,
                 }
+        else:
+            ujORMs = (
+                self.db.query(UserJobsORM).filter(UserJobsORM.user_id == user.id).all()
+            )
+            if ujORMs is None:
+                self.set_status(404)
+                return
+            ret = {}
+            for uj in ujORMs:
+                if uj.running:
+                    ret[uj.id] = await self.userjobs_get(user, uj)
+                else:
+                    ret[uj.id] = {
+                        "id": uj.id,
+                        "running": uj.running,
+                        "bss_details": uj.bss_details,
+                        "result": uj.result,
+                        "system": uj.system,
+                    }
         self.write(ret)
         self.set_status(200)
 
@@ -465,6 +463,9 @@ class UserJobsAPIHandler(APIHandler):
 
         env = body.get("env", {})
         env["JUPYTERHUB_STAGE"] = os.environ.get("JUPYTERHUB_STAGE", "")
+        env["JUPYTERHUB_STATUS_URL"] = ""
+        env["JUPYTERHUB_API_TOKEN"] = ""
+        env["JUPYTERHUB_USER_ID"] = f"{user.id}"
 
         # put this in body["env"] when sending request, not done in here
         # if "ports" in body.keys():

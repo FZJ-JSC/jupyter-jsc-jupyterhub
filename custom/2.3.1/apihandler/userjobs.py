@@ -33,8 +33,8 @@ class UserJobsORM(Base):
     service = Column(Unicode(255), default="")
     suffix = Column(Unicode(255), default="")
     running = Column(Boolean(create_constraint=False), default=True)
-    slurm_status = Column(Unicode(255), default="")
-    result = Column(JSONDict)
+    bss_details = Column(JSONDict, default={})
+    result = Column(JSONDict, default={})
 
     def __repr__(self):
         return "<{} - UserJobs for {}>".format(self.id, self.user_id)
@@ -408,7 +408,7 @@ class UserJobsAPIHandler(APIHandler):
                 ret[uj.id] = {
                     "id": uj.id,
                     "running": uj.running,
-                    "slurm_status": uj.slurm_status,
+                    "bss_details": uj.bss_details,
                     "result": uj.result,
                     "system": uj.system,
                 }
@@ -547,7 +547,7 @@ class UserJobsAPIHandler(APIHandler):
         ret = {
             "id": uj.id,
             "running": resp_json["running"],
-            "slurm_status": resp_json.get("slurm_status", "UNKNOWN"),
+            "bss_details": resp_json.get("bss_details", {}),
             "system": uj.system,
             "result": {},
         }
@@ -556,7 +556,7 @@ class UserJobsAPIHandler(APIHandler):
             uj.running = False
             uj.result = ret["result"]
 
-        uj.slurm_status = ret["slurm_status"]
+        uj.bss_details = ret["bss_details"]
         self.db.commit()
         return ret
 

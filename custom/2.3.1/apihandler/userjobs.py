@@ -593,15 +593,15 @@ class UserJobsAPIHandler(APIHandler):
             user.name,
             "UserJobs",
             parse_json=True,
-            raise_exception=True,
+            raise_exception=False,
         )
 
         ret = {
             "id": uj.id,
-            "running": resp_json["running"],
-            "bss_details": resp_json.get("bss_details", {}),
+            "running": resp_json.ge("running", False),
+            "bss_details": resp_json.get("bss_details", uj.bss_details),
             "system": uj.system,
-            "result": {},
+            "result": resp_json.get("details", uj.result),
         }
         if not ret["running"]:
             ret["result"] = resp_json.get("details", {})

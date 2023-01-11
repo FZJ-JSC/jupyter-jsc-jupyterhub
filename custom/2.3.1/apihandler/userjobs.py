@@ -5,6 +5,7 @@ import os
 import random
 import string
 import uuid
+from datetime import datetime
 
 from custom_utils.backend_services import BackendException
 from custom_utils.backend_services import drf_request
@@ -15,6 +16,7 @@ from jupyterhub.orm import JSONDict
 from jupyterhub.scopes import needs_scope
 from sqlalchemy import Boolean
 from sqlalchemy import Column
+from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import Unicode
@@ -32,6 +34,7 @@ class UserJobsORM(Base):
     system = Column(Unicode(255), default="")
     service = Column(Unicode(255), default="")
     suffix = Column(Unicode(255), default="")
+    created = Column(DateTime, default=datetime.utcnow)
     running = Column(Boolean(create_constraint=False), default=True)
     bss_details = Column(JSONDict, default={})
     result = Column(JSONDict, default={})
@@ -50,6 +53,7 @@ class UserJobsForwardORM(Base):
     service = Column(Unicode(255), default="")
     ports = Column(JSONDict)
     system = Column(Unicode(255), default="")
+    created = Column(DateTime, default=datetime.utcnow)
     userjobs_id = Column(
         Integer, ForeignKey("userjobs.id", ondelete="CASCADE"), default=None
     )
@@ -82,7 +86,7 @@ class UserJobsForwardAPIHandler(APIHandler):
             body["service"] = f"{first_char}{uuid.uuid4().hex[:31]}"
 
         try:
-            await self.userjobsforward_create(body)
+            await self.userjobsforward_create(user, body)
         except BackendException:
             self.set_status(400)
         else:
@@ -114,7 +118,7 @@ class UserJobsForwardAPIHandler(APIHandler):
         if id:
             ujfORM = (
                 self.db.query(UserJobsForwardORM)
-                .filter(UserJobsForwardORM.id == id)
+                .filter(UserJobsForwardORM.id == int(id))
                 .first()
             )
             if ujfORM is None:
@@ -154,42 +158,62 @@ class UserJobsForwardAPIHandler(APIHandler):
         self.set_status(200)
 
     @needs_scope("access:servers")
-    async def delete(self, id):
+    async def delete(self, id=None):
         user = self.current_user
         if user is None:
             self.set_status(403)
             return
-        ujfORM = (
-            self.db.query(UserJobsForwardORM)
-            .filter(UserJobsForwardORM.id == id)
-            .first()
-        )
-        if ujfORM is None:
-            self.set_status(404)
-            return
-        if ujfORM.user_id != user.id:
-            self.set_status(403)
-            return
+        if id:
+            ujfORM = (
+                self.db.query(UserJobsForwardORM)
+                .filter(UserJobsForwardORM.id == int(id))
+                .first()
+            )
+            if ujfORM is None:
+                self.set_status(404)
+                return
+            if ujfORM.user_id != user.id:
+                self.set_status(403)
+                return
 
-        await self.userjobsforward_delete(user, ujfORM)
-        self.set_status(204)
+            await self.userjobsforward_delete(user, ujfORM)
+            self.set_status(204)
+        else:
+            # Delete all forwards older than x hours
+            if not user.orm_user.admin:
+                self.set_status(403)
+                return
+            custom_config = user.authenticator.custom_config
+            threshold = custom_config.get("userjobsforward", {}).get(
+                "cleanup_after_x_hours", 24
+            )
+            current_time = datetime.datetime.utcnow()
+            x_hours_ago = current_time - datetime.timedelta(hours=threshold)
+            ujfToDelete = (
+                self.db.query(UserJobsForwardORM)
+                .filter(UserJobsForwardORM.created < x_hours_ago)
+                .all()
+            )
+            for ujf in ujfToDelete:
+                await self.userjobsforward_delete(user, ujf)
+            self.set_status(204)
 
     async def userjobsforward_delete(self, user, ujf):
         self.log.info(
             "UserJobsForward delete ...",
             extra={
-                "uuidcode": ujf.service_name,
+                "uuidcode": ujf.service,
                 "username": user.name,
                 "userid": user.id,
                 "action": "userjobsforward_delete",
             },
         )
 
-        auth_state = await user.get_auth_state()
-        req_prop = self.get_req_prop(auth_state, ujf.system, ujf.ujf.service_name)
+        custom_config = user.authenticator.custom_config
+        req_prop = self.get_req_prop(custom_config, ujf.system, ujf.service)
         service_url = req_prop.get("urls", {}).get("userjobs", "None")
         req = HTTPRequest(
-            f"{service_url}{ujf.service_base_name}",
+            f"{service_url}{ujf.service}",
             method="DELETE",
             headers=req_prop["headers"],
             request_timeout=req_prop["request_timeout"],
@@ -212,7 +236,7 @@ class UserJobsForwardAPIHandler(APIHandler):
             self.log.warning(
                 "UserJobsForward delete ... failed.",
                 extra={
-                    "uuidcode": ujf.service_name,
+                    "uuidcode": ujf.service,
                     "username": user.name,
                     "userid": user.id,
                     "action": "userjobsforward_delete_fail",
@@ -223,7 +247,7 @@ class UserJobsForwardAPIHandler(APIHandler):
             self.log.info(
                 "UserJobsForward delete ... done.",
                 extra={
-                    "uuidcode": ujf.service_name,
+                    "uuidcode": ujf.service,
                     "username": user.name,
                     "userid": user.id,
                     "action": "userjobsforward_deleted",
@@ -248,9 +272,7 @@ class UserJobsForwardAPIHandler(APIHandler):
 
         custom_config = user.authenticator.custom_config
         auth_state = await user.get_auth_state()
-        req_prop = self.get_req_prop(
-            custom_config, auth_state, body["system"], body["service"]
-        )
+        req_prop = self.get_req_prop(custom_config, body["system"], body["service"])
         service_url = req_prop.get("urls", {}).get("userjobs", "None")
         req = HTTPRequest(
             service_url,
@@ -288,7 +310,7 @@ class UserJobsForwardAPIHandler(APIHandler):
         self.log.info(
             "UserJobsForward create ... done.",
             extra={
-                "uuidcode": body["serivce"],
+                "uuidcode": body["service"],
                 "username": user.name,
                 "userid": user.id,
                 "action": "userjobsforward_created",
@@ -296,16 +318,19 @@ class UserJobsForwardAPIHandler(APIHandler):
             },
         )
 
-    def get_req_prop(self, custom_config, auth_state, system, uuidcode):
+    def get_req_prop(self, custom_config, system, uuidcode, auth_state=None):
         drf_service = (
             custom_config.get("systems", {}).get(system, {}).get("drf-service", None)
         )
-        send_access_token = (
-            custom_config.get("drf-services", {})
-            .get(drf_service, {})
-            .get("send_access_token", False)
-        )
-        access_token = auth_state["access_token"] if send_access_token else None
+        if auth_state:
+            send_access_token = (
+                custom_config.get("drf-services", {})
+                .get(drf_service, {})
+                .get("send_access_token", False)
+            )
+            access_token = auth_state["access_token"] if send_access_token else None
+        else:
+            access_token = None
 
         req_prop = drf_request_properties(
             drf_service, custom_config, self.log, uuidcode, access_token
@@ -374,7 +399,7 @@ class UserJobsAPIHandler(APIHandler):
             raise web.HTTPError(403)
 
         if id:
-            ujORM = self.db.query(UserJobsORM).filter(UserJobsORM.id == id).first()
+            ujORM = self.db.query(UserJobsORM).filter(UserJobsORM.id == int(id)).first()
             if ujORM is None:
                 self.set_status(404)
                 return
@@ -414,32 +439,58 @@ class UserJobsAPIHandler(APIHandler):
         self.set_status(200)
 
     @needs_scope("access:servers")
-    async def delete(self, id):
+    async def delete(self, id=None):
         user = self.current_user
         if user is None:
             raise web.HTTPError(403)
 
-        ujORM = self.db.query(UserJobsORM).filter(UserJobsORM.id == id).first()
+        if id:
+            ujORM = self.db.query(UserJobsORM).filter(UserJobsORM.id == int(id)).first()
 
-        if ujORM is None:
-            self.set_status(404)
-            return
-        if ujORM.user_id != user.id:
-            self.set_status(403)
-            return
-        try:
-            await self.userjobs_delete(ujORM.system, ujORM.service)
-        except:
-            self.log.exception(f"Could not delete userjob {ujORM.service}")
-            self.write(
-                "Could not stop job. Please delete it with scancel on the system itself."
-            )
-            self.set_status(400)
+            if ujORM is None:
+                self.set_status(404)
+                return
+            if ujORM.user_id != user.id:
+                self.set_status(403)
+                return
+            try:
+                await self.userjobs_delete(user, ujORM)
+            except:
+                self.log.exception(f"Could not delete userjob {ujORM.service}")
+                self.write(
+                    "Could not stop job. Please delete it with scancel on the system itself."
+                )
+                self.set_status(400)
+            else:
+                self.set_status(204)
+            finally:
+                if (
+                    self.request.arguments.get("delete", [b""])[0].decode().lower()
+                    == "true"
+                ):
+                    self.db.delete(ujORM)
+                    self.db.commit()
         else:
+            # Delete all userjobs older than x hours. We don't have to stop them,
+            # they're stopped anyway after 24 hours max
+            if not user.orm_user.admin:
+                self.set_status(403)
+                return
+            custom_config = user.authenticator.custom_config
+            threshold = custom_config.get("userjobs", {}).get(
+                "cleanup_after_x_hours", 24
+            )
+            current_time = datetime.datetime.utcnow()
+            x_hours_ago = current_time - datetime.timedelta(hours=threshold)
+            ujToDelete = (
+                self.db.query(UserJobsORM)
+                .filter(UserJobsORM.created < x_hours_ago)
+                .all()
+            )
+            for uj in ujToDelete:
+                self.db.delete(uj)
+                self.db.commit()
             self.set_status(204)
-        finally:
-            self.db.delete(ujORM)
-            self.db.commit()
 
     async def userjobs_create(self, user, body, service, suffix):
         auth_state = await user.get_auth_state()
@@ -447,7 +498,7 @@ class UserJobsAPIHandler(APIHandler):
 
         system = body["user_options"]["system"]
 
-        req_prop = self.get_req_prop(custom_config, auth_state, system, service)
+        req_prop = self.get_req_prop(custom_config, system, service, auth_state)
         service_url = req_prop.get("urls", {}).get("services", "None")
         self.log.info(
             "UserJobs create ...",
@@ -483,7 +534,7 @@ class UserJobsAPIHandler(APIHandler):
             popen_kwargs["user_options"]["vo"] = auth_state.get("vo_active", None)
 
         if "input_files" in body.keys():
-            popen_kwargs["input_files"] = (body["input_files"],)
+            popen_kwargs["input_files"] = body["input_files"]
 
         req = HTTPRequest(
             service_url,
@@ -523,7 +574,7 @@ class UserJobsAPIHandler(APIHandler):
         auth_state = await user.get_auth_state()
         custom_config = user.authenticator.custom_config
 
-        req_prop = self.get_req_prop(custom_config, auth_state, uj.system, uj.service)
+        req_prop = self.get_req_prop(custom_config, uj.system, uj.service, auth_state)
         service_url = req_prop.get("urls", {}).get("services", "None")
 
         req = HTTPRequest(
@@ -561,15 +612,15 @@ class UserJobsAPIHandler(APIHandler):
         self.db.commit()
         return ret
 
-    async def userjobs_delete(self, user, system, service):
+    async def userjobs_delete(self, user, uj):
         auth_state = await user.get_auth_state()
         custom_config = user.authenticator.custom_config
 
-        req_prop = self.get_req_prop(custom_config, auth_state, system, service)
+        req_prop = self.get_req_prop(custom_config, uj.system, uj.service, auth_state)
         service_url = req_prop.get("urls", {}).get("services", "None")
 
         req = HTTPRequest(
-            f"{service_url}{service}/",
+            f"{service_url}{uj.service}/",
             method="DELETE",
             headers=req_prop["headers"],
             request_timeout=req_prop["request_timeout"],
@@ -587,17 +638,19 @@ class UserJobsAPIHandler(APIHandler):
             raise_exception=False,
         )
 
-    def get_req_prop(self, custom_config, auth_state, system, uuidcode):
-
+    def get_req_prop(self, custom_config, system, uuidcode, auth_state=None):
         drf_service = (
             custom_config.get("systems", {}).get(system, {}).get("drf-service", None)
         )
-        send_access_token = (
-            custom_config.get("drf-services", {})
-            .get(drf_service, {})
-            .get("send_access_token", False)
-        )
-        access_token = auth_state["access_token"] if send_access_token else None
+        if auth_state:
+            send_access_token = (
+                custom_config.get("drf-services", {})
+                .get(drf_service, {})
+                .get("send_access_token", False)
+            )
+            access_token = auth_state["access_token"] if send_access_token else None
+        else:
+            access_token = None
 
         req_prop = drf_request_properties(
             drf_service, custom_config, self.log, uuidcode, access_token

@@ -1,7 +1,7 @@
 import datetime
 import json
-import os
 import logging
+import os
 
 from custom_utils.backend_services import BackendException
 from custom_utils.backend_services import drf_request
@@ -11,7 +11,16 @@ from jupyterhub.scopes import needs_scope
 from tornado import web
 from tornado.httpclient import HTTPRequest
 
-user_cancel_message = "Start cancelled by user.</summary>You clicked the cancel button.</details>"
+user_cancel_message = (
+    "Start cancelled by user.</summary>You clicked the cancel button.</details>"
+)
+
+
+class SpawnProgressUNICOREUpdateAPIHandler(APIHandler):
+    @needs_scope("access:servers")
+    async def post(self, user_name, server_name=""):
+        self.set_status(404)
+
 
 class SpawnProgressUpdateAPIHandler(APIHandler):
     @needs_scope("access:servers")
@@ -34,7 +43,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
         uuidcode = server_name
 
         # Do not do anything if stop or cancel is already pending
-        if spawner.pending == 'stop' or spawner._cancel_pending:
+        if spawner.pending == "stop" or spawner._cancel_pending:
             self.set_status(204)
             return
 
@@ -60,23 +69,23 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                         "event": event,
                     },
                 )
-                if os.environ.get(
-                    "LOGGING_METRICS_ENABLED", "false"
-                ).lower() in ["true", "1"]:
+                if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
+                    "true",
+                    "1",
+                ]:
                     options = ";".join(
-                        [
-                            "%s=%s" % (k, v)
-                            for k, v in spawner.user_options.items()
-                        ]
+                        ["%s=%s" % (k, v) for k, v in spawner.user_options.items()]
                     )
                     metrics_logger = logging.getLogger("Metrics")
                     metrics_extras = {
                         "action": "usercancel",
                         "userid": user.id,
                         "servername": spawner.name,
-                        "options": spawner.user_options
+                        "options": spawner.user_options,
                     }
-                    metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
+                    metrics_logger.info(
+                        f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}"
+                    )
                     self.log.info("usercancel", extra=metrics_extras)
             else:
                 self.log.debug(
@@ -120,13 +129,17 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                     if param == "name" or param == "additional_spawn_options":
                         continue
                     key = f"hub.jupyter.org/{param}"
-                    value = str(value).replace('/', '-')  # cannot have '/' in k8s label values
+                    value = str(value).replace(
+                        "/", "-"
+                    )  # cannot have '/' in k8s label values
                     labels.update({key: value})
                 custom_config = user.authenticator.custom_config
                 req_prop = drf_request_properties(
                     "tunnel", custom_config, self.log, uuidcode
                 )
-                req_prop["headers"]["labels"] = json.dumps(labels)  # Add labels to headers
+                req_prop["headers"]["labels"] = json.dumps(
+                    labels
+                )  # Add labels to headers
                 service_url = req_prop.get("urls", {}).get("tunnel", "None")
                 req = HTTPRequest(
                     service_url,

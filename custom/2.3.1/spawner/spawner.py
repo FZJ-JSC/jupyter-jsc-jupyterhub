@@ -101,6 +101,30 @@ class BackendSpawner(Spawner):
         If you restart JupyterHub, all polls start at the same time. With the randomizing
         factor, only the first poll for each server happens at the same time.
         """
+
+        custom_config = self.user.authenticator.custom_config
+        drf_service = (
+            custom_config.get("systems", {})
+            .get(self.user_options.get("system", ""), {})
+            .get("drf-service", "")
+        )
+        if (
+            not custom_config.get("drf-services", {})
+            .get(drf_service, {})
+            .get("poll", True)
+        ):
+            # do not poll
+            return
+        self.poll_interval = (
+            custom_config.get("drf-services", {})
+            .get(drf_service, {})
+            .get("poll_interval", self.poll_interval)
+        )
+        self.poll_interval_randomizer = (
+            custom_config.get("drf-services", {})
+            .get(drf_service, {})
+            .get("poll_interval_randomizer", self.poll_interval_randomizer)
+        )
         if self.poll_interval <= 0:
             self.log.debug("Not polling subprocess")
             return
@@ -126,9 +150,22 @@ class BackendSpawner(Spawner):
     def _status_update_url(self):
         return self.status_update_url(self.name)
 
+    def status_update_unicore_url(self, server_name=""):
+        """API path for status update endpoint for a server with a given name"""
+        hostname = os.environ.get("JUPYTERHUB_HOSTNAME", "default")
+        url_parts = ["users", "progress", "updateunicore", self.user.escaped_name]
+        if server_name:
+            url_parts.append(server_name)
+        return f"https://{hostname}/hub/api/{url_path_join(*url_parts)}"
+
+    @property
+    def _status_update_unicore_url(self):
+        return self.status_update_unicore_url(self.name)
+
     def get_env(self):
         env = super().get_env()
         env["JUPYTERHUB_STATUS_URL"] = self._status_update_url
+        env["JUPYTERHUB_STATUS_UNICORE_URL"] = self._status_update_unicore_url
         env["JUPYTERHUB_USER_ID"] = self.user.orm_user.id
         env["JUPYTERHUB_STAGE"] = os.environ.get("JUPYTERHUB_STAGE", "")
         return env
@@ -432,7 +469,7 @@ class BackendSpawner(Spawner):
         )
         return (f"{self.svc_name}{svc_name_suffix}", self.port)
 
-    async def poll(self):
+    async def poll(self, force_cancel=False):
         if self._cancel_pending:
             # avoid loop with cancel
             return 0
@@ -471,7 +508,11 @@ class BackendSpawner(Spawner):
         except Exception:
             self.log.warning("Unexpected error", exc_info=True)
             return None
-        if not resp_json.get("running", True):
+        if not resp_json.get("running", True) or force_cancel:
+            # Force_cancel:
+            # When UNICORE sends a notification with a status update SUCCESSFUL,
+            # drf-unicoremgr may return job.running = True ; we want to cancel
+            # anyway.
             if self._spawn_pending:
                 # During the spawn progress we've received that it's already stopped.
                 # We want to show the error message to the user

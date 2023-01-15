@@ -1,8 +1,12 @@
 import datetime
 import json
-import os
 import logging
+import os
 
+import jwt
+import requests
+from cryptography.hazmat.backends import default_backend
+from cryptography.x509 import load_pem_x509_certificate
 from custom_utils.backend_services import BackendException
 from custom_utils.backend_services import drf_request
 from custom_utils.backend_services import drf_request_properties
@@ -11,7 +15,110 @@ from jupyterhub.scopes import needs_scope
 from tornado import web
 from tornado.httpclient import HTTPRequest
 
-user_cancel_message = "Start cancelled by user.</summary>You clicked the cancel button.</details>"
+user_cancel_message = (
+    "Start cancelled by user.</summary>You clicked the cancel button.</details>"
+)
+
+
+class SpawnProgressUNICOREUpdateAPIHandler(APIHandler):
+    async def post(self, user_name, server_name=""):
+        user = self.find_user(user_name)
+        if user is None:
+            self.set_status(404)
+            return
+        if server_name not in user.spawners:
+            self.set_status(404)
+            return
+
+        custom_config = user.authenticator.custom_config
+        spawner = user.spawners[server_name]
+        spawner_system = spawner.user_options.get("system", "")
+        cert_url = (
+            custom_config.get("unicore_updates", {})
+            .get("certificate_urls", {})
+            .get(spawner_system, False)
+        )
+        gateway_cert_path = custom_config.get("unicore_updates", {}).get(
+            "gateway_cert_path", False
+        )
+        if cert_url:
+            with requests.get(
+                cert_url, headers={"accept": "text/plain"}, verify=gateway_cert_path
+            ) as r:
+                r.raise_for_status()
+                cert = r.content
+
+            # Validate certifica
+            cert_obj = load_pem_x509_certificate(cert, default_backend())
+            token = self.request.headers.get("Authorization", "Bearer -").split()[1]
+            jwt.decode(token, cert_obj.public_key())
+
+        body = self.request.body.decode("utf8")
+        body = json.loads(body) if body else {}
+        self.log.info(
+            "Unicore Status Update received",
+            extra={
+                "uuidcode": spawner.name,
+                "username": user.name,
+                "userid": user.id,
+                "action": "unicoreupdate",
+                "body": body,
+            },
+        )
+        if body.get("status", "") in ["FAILED", "SUCCESSFUL", "DONE"]:
+            # spawner.poll will check the current status via UnicoreMgr.
+            # This will download the logs and show them to the user.
+            # It will also cancel the current spawn attempt.
+            await spawner.poll(force_cancel=True)
+        else:
+            # It's in Running (UNICORE wise) state. Let's poll manually
+            # and check the slurm status. If it's in CONFIGURING we'll
+            # show this to the user
+            auth_state = await user.get_auth_state()
+
+            req_prop = spawner._get_req_prop(auth_state)
+            service_url = req_prop.get("urls", {}).get("services", "None")
+
+            req = HTTPRequest(
+                f"{service_url}{spawner.name}/",
+                method="GET",
+                headers=req_prop["headers"],
+                request_timeout=req_prop["request_timeout"],
+                validate_cert=req_prop["validate_cert"],
+                ca_certs=req_prop["ca_certs"],
+            )
+            try:
+                resp_json = await drf_request(
+                    req,
+                    self.log,
+                    user.authenticator.fetch,
+                    "poll",
+                    user.name,
+                    spawner._log_name,
+                    parse_json=True,
+                    raise_exception=True,
+                )
+            except Exception:
+                # The Job Status will changed over time, we'll check again then
+                self.log.warning(f"Unexpected error ( {body} )", exc_info=True)
+                self.set_status(200)
+                return
+            else:
+                slurm_state = resp_json.get("bss_details", {}).get("JobState", "")
+                if slurm_state == "CONFIGURING":
+                    # Let's inform the user that the node is currently booting.
+                    # This will take around 5 minutes. Any other state: do nothing
+                    now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+                    summary = "The node(s) for your job are currently booting up. This will take a few minutes."
+                    details = f"Slurm job details: {resp_json.get('bss_details')}"
+                    event = {
+                        "failed": False,
+                        "progress": 40,
+                        "html_message": f"<details><summary>{now}: {summary}</summary>{details}</details>",
+                    }
+                    spawner.latest_events.append(event)
+        self.set_status(200)
+
 
 class SpawnProgressUpdateAPIHandler(APIHandler):
     @needs_scope("access:servers")
@@ -34,7 +141,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
         uuidcode = server_name
 
         # Do not do anything if stop or cancel is already pending
-        if spawner.pending == 'stop' or spawner._cancel_pending:
+        if spawner.pending == "stop" or spawner._cancel_pending:
             self.set_status(204)
             return
 
@@ -60,23 +167,23 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                         "event": event,
                     },
                 )
-                if os.environ.get(
-                    "LOGGING_METRICS_ENABLED", "false"
-                ).lower() in ["true", "1"]:
+                if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
+                    "true",
+                    "1",
+                ]:
                     options = ";".join(
-                        [
-                            "%s=%s" % (k, v)
-                            for k, v in spawner.user_options.items()
-                        ]
+                        ["%s=%s" % (k, v) for k, v in spawner.user_options.items()]
                     )
                     metrics_logger = logging.getLogger("Metrics")
                     metrics_extras = {
                         "action": "usercancel",
                         "userid": user.id,
                         "servername": spawner.name,
-                        "options": spawner.user_options
+                        "options": spawner.user_options,
                     }
-                    metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
+                    metrics_logger.info(
+                        f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}"
+                    )
                     self.log.info("usercancel", extra=metrics_extras)
             else:
                 self.log.debug(
@@ -120,13 +227,17 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                     if param == "name" or param == "additional_spawn_options":
                         continue
                     key = f"hub.jupyter.org/{param}"
-                    value = str(value).replace('/', '-')  # cannot have '/' in k8s label values
+                    value = str(value).replace(
+                        "/", "-"
+                    )  # cannot have '/' in k8s label values
                     labels.update({key: value})
                 custom_config = user.authenticator.custom_config
                 req_prop = drf_request_properties(
                     "tunnel", custom_config, self.log, uuidcode
                 )
-                req_prop["headers"]["labels"] = json.dumps(labels)  # Add labels to headers
+                req_prop["headers"]["labels"] = json.dumps(
+                    labels
+                )  # Add labels to headers
                 service_url = req_prop.get("urls", {}).get("tunnel", "None")
                 req = HTTPRequest(
                     service_url,

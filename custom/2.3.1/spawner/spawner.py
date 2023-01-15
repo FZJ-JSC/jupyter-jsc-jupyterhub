@@ -101,6 +101,30 @@ class BackendSpawner(Spawner):
         If you restart JupyterHub, all polls start at the same time. With the randomizing
         factor, only the first poll for each server happens at the same time.
         """
+
+        custom_config = self.user.authenticator.custom_config
+        drf_service = (
+            custom_config.get("systems", {})
+            .get(self.user_options.get("system", ""), {})
+            .get("drf-service", "")
+        )
+        if (
+            not custom_config.get("drf-services", {})
+            .get(drf_service, {})
+            .get("poll", True)
+        ):
+            # do not poll
+            return
+        self.poll_interval = (
+            custom_config.get("drf-services", {})
+            .get(drf_service, {})
+            .get("poll_interval", self.poll_interval)
+        )
+        self.poll_interval_randomizer = (
+            custom_config.get("drf-services", {})
+            .get(drf_service, {})
+            .get("poll_interval_randomizer", self.poll_interval_randomizer)
+        )
         if self.poll_interval <= 0:
             self.log.debug("Not polling subprocess")
             return
@@ -126,9 +150,22 @@ class BackendSpawner(Spawner):
     def _status_update_url(self):
         return self.status_update_url(self.name)
 
+    def status_update_unicore_url(self, server_name=""):
+        """API path for status update endpoint for a server with a given name"""
+        hostname = os.environ.get("JUPYTERHUB_HOSTNAME", "default")
+        url_parts = ["users", "progress", "updateunicore", self.user.escaped_name]
+        if server_name:
+            url_parts.append(server_name)
+        return f"https://{hostname}/hub/api/{url_path_join(*url_parts)}"
+
+    @property
+    def _status_update_unicore_url(self):
+        return self.status_update_unicore_url(self.name)
+
     def get_env(self):
         env = super().get_env()
         env["JUPYTERHUB_STATUS_URL"] = self._status_update_url
+        env["JUPYTERHUB_STATUS_UNICORE_URL"] = self._status_update_unicore_url
         env["JUPYTERHUB_USER_ID"] = self.user.orm_user.id
         env["JUPYTERHUB_STAGE"] = os.environ.get("JUPYTERHUB_STAGE", "")
         return env
@@ -241,6 +278,7 @@ class BackendSpawner(Spawner):
 
     async def _start(self):
         config = self.user.authenticator.custom_config
+
         def map_user_options():
             ret = {}
             for key, value in self.user_options.items():
@@ -293,11 +331,13 @@ class BackendSpawner(Spawner):
             "html_message": f"<details><summary>{now}: {start_pre_msg}</summary>\
                 &nbsp;&nbsp;Start ID: {self.start_id}<br>&nbsp;&nbsp;Options:<br><pre>{json.dumps(user_options, indent=2)}</pre></details>",
         }
-        ready_default = f"Service {user_options['name']} started on {user_options['system']}."
+        ready_default = (
+            f"Service {user_options['name']} started on {user_options['system']}."
+        )
         ready_msg = user_messages.get("ready", ready_default)
         self.ready_event[
             "html_message"
-        ] = f"<details><summary><now>: {ready_msg}</summary>You will be redirected to <a href=\"<url>\"><url></a></details>"
+        ] = f'<details><summary><now>: {ready_msg}</summary>You will be redirected to <a href="<url>"><url></a></details>'
         self.latest_events = [start_event]
 
         self.port = 8080
@@ -307,7 +347,9 @@ class BackendSpawner(Spawner):
         add_env = {}
         for options in config.get("additional_spawn_options", {}).items():
             for key in options[1]:
-                add_env[f"JUPYTER_MODULE_{key.upper()}_ENABLED"] = int(key in user_options.get("additional_spawn_options", {}))
+                add_env[f"JUPYTER_MODULE_{key.upper()}_ENABLED"] = int(
+                    key in user_options.get("additional_spawn_options", {})
+                )
 
         env = self.get_env()
         env.update(add_env)
@@ -337,15 +379,17 @@ class BackendSpawner(Spawner):
             "true",
             "1",
         ]:
-            options = ';'.join(['%s=%s' % (k, v) for k, v in self.user_options.items()])
-            metrics_logger = logging.getLogger("Metrics")            
+            options = ";".join(["%s=%s" % (k, v) for k, v in self.user_options.items()])
+            metrics_logger = logging.getLogger("Metrics")
             metrics_extras = {
                 "action": "start",
                 "userid": self.user.id,
                 "servername": self.name,
-                "options": self.user_options
+                "options": self.user_options,
             }
-            metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}")
+            metrics_logger.info(
+                f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}"
+            )
             self.log.info("start", extra=metrics_extras)
 
         try:
@@ -390,9 +434,16 @@ class BackendSpawner(Spawner):
             extra={"uuidcode": self.name},
         )
         now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-        if self.user.authenticator.custom_config.get("systems", {}).get(user_options["system"], {}).get("drf-service", "") == "unicoremgr":
+        if (
+            self.user.authenticator.custom_config.get("systems", {})
+            .get(user_options["system"], {})
+            .get("drf-service", "")
+            == "unicoremgr"
+        ):
             unicore_post_default = "Waiting for UNICORE job to run... (click on log lines for more information)"
-            unicore_post_msg = user_messages.get("start_post_unicore", unicore_post_default)
+            unicore_post_msg = user_messages.get(
+                "start_post_unicore", unicore_post_default
+            )
             submit_message = f"<details><summary>{now}: {unicore_post_msg}</summary>You will receive further information about the service status from the UNICORE job.</details>"
         else:
             k8s_post_default = "Waiting for Kubernetes container to start... (click on log lines for more information)"
@@ -418,7 +469,7 @@ class BackendSpawner(Spawner):
         )
         return (f"{self.svc_name}{svc_name_suffix}", self.port)
 
-    async def poll(self):
+    async def poll(self, force_cancel=False):
         if self._cancel_pending:
             # avoid loop with cancel
             return 0
@@ -449,7 +500,7 @@ class BackendSpawner(Spawner):
                 raise_exception=True,
             )
         except HTTPClientError as e:
-            if getattr(e, 'code', 500) == 404:
+            if getattr(e, "code", 500) == 404:
                 resp_json = {"running": False}
             else:
                 self.log.warning("Unexpected error", exc_info=True)
@@ -457,7 +508,11 @@ class BackendSpawner(Spawner):
         except Exception:
             self.log.warning("Unexpected error", exc_info=True)
             return None
-        if not resp_json.get("running", True):
+        if not resp_json.get("running", True) or force_cancel:
+            # Force_cancel:
+            # When UNICORE sends a notification with a status update SUCCESSFUL,
+            # drf-unicoremgr may return job.running = True ; we want to cancel
+            # anyway.
             if self._spawn_pending:
                 # During the spawn progress we've received that it's already stopped.
                 # We want to show the error message to the user
@@ -496,7 +551,7 @@ class BackendSpawner(Spawner):
             validate_cert=req_prop["validate_cert"],
             ca_certs=req_prop["ca_certs"],
         )
-        
+
         await drf_request(
             req,
             self.log,
@@ -628,7 +683,9 @@ class BackendSpawner(Spawner):
                 service = service[0]
         else:
             try:
-                service = spawner.user_options.get("service", "JupyterLab").split("/")[0]
+                service = spawner.user_options.get("service", "JupyterLab").split("/")[
+                    0
+                ]
             except:
                 self.log.exception("Could not receive options_form")
                 service = ""

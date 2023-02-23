@@ -4,6 +4,7 @@ from .notebook_template_server import TemplateServerAPIHandler
 from .options_form import SpawnOptionsFormAPIHandler
 from .refresh_hpc_accounts import HPCUpdateAPIHandler
 from .server_random import UserRandomServerAPIHandler
+from .slurm_wrapper import SlurmWrapperAPIHandler
 from .spawn_notifications import SpawnNotificationAPIHandler
 from .spawn_notifications import SpawnStopNotificationAPIHandler
 from .spawn_options import SpawnUpdateOptionsAPIHandler

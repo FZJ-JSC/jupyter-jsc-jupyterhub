@@ -649,8 +649,31 @@ class BackendSpawner(Spawner):
     async def cancel(self, event):
         self.log.info("Cancel Start")
         self._cancel_pending = True
-        self.latest_events.append(event)
 
+        cancel_msg = "Cancel in progress"
+        cancel_msg_detail = "We're stopping your service. This may take a few seconds."
+        now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+        config = self.user.authenticator.custom_config
+        cancel_msg = config.get("user_messages", {}).get("cancelling", cancel_msg)
+        cancel_msg_detail = config.get("user_messages", {}).get(
+            "cancelling_detail", cancel_msg_detail
+        )
+        cancelling_event = {
+            "failed": False,
+            "progress": 99,
+            "html_message": "<details><summary>{now}: {cancel_msg}</summary><p>{cancel_msg_detail}</p></details>",
+        }
+        self.latest_events.append(cancelling_event)
+
+        await self.stop()
+
+        try:
+            await self.user.stop(self.name)
+        except asyncio.CancelledError:
+            pass
+        await self._cancel_future(self._spawn_future)
+
+        self.latest_events.append(event)
         # Let generate_progress catch this event.
         # This will show the new event at the control panel site
         for _ in range(0, 2):
@@ -660,14 +683,6 @@ class BackendSpawner(Spawner):
                 await asyncio.sleep(self.yield_wait_seconds)
         if not self._cancel_event_yielded:
             self.log.warning("Cancel event will not be displayed at control panel.")
-
-        await self.stop()
-
-        try:
-            await self.user.stop(self.name)
-        except asyncio.CancelledError:
-            pass
-        await self._cancel_future(self._spawn_future)
 
         self._cancel_pending = False
         self.log.info("Cancel Done")

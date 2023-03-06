@@ -427,7 +427,7 @@ class BackendSpawner(Spawner):
             try:
                 await self.stop()
             except:
-                pass
+                self.log.exception("Could not stop failed spawn")
             # We already stopped everything we can stop at this stage.
             # With the exception JupyterHub will try to cancel again.
             # We can skip these stop attempts. Failed Spawners will be

@@ -34,6 +34,7 @@ class BackendSpawner(Spawner):
     latest_events = []
     events = {}
     start_id = ""
+    skip_stop = False
     clear_events = True
     yield_wait_seconds = 1
 
@@ -86,6 +87,7 @@ class BackendSpawner(Spawner):
         """clear any state (called after shutdown)"""
         self.svc_name = ""
         self.start_id = ""
+        self.skip_stop = False
         if self.clear_events:
             self.events = {}
             self.clear_events = False
@@ -322,6 +324,7 @@ class BackendSpawner(Spawner):
             },
         )
 
+        self.skip_stop = False
         user_messages = config.get("user_messages", {})
         start_pre_default = f"Sending request to backend service to start your service on {user_options['system']}."
         start_pre_msg = user_messages.get("start_pre", start_pre_default)
@@ -425,6 +428,11 @@ class BackendSpawner(Spawner):
                 await self.stop()
             except:
                 pass
+            # We already stopped everything we can stop at this stage.
+            # With the exception JupyterHub will try to cancel again.
+            # We can skip these stop attempts. Failed Spawners will be
+            # available again faster.
+            self.skip_stop = True
             self.latest_events.append(failed_event)
             raise e
 
@@ -538,6 +546,8 @@ class BackendSpawner(Spawner):
         return asyncio.ensure_future(self._stop())
 
     async def _stop(self):
+        if self.skip_stop:
+            return
         auth_state = await self.user.get_auth_state()
 
         req_prop = self._get_req_prop(auth_state)

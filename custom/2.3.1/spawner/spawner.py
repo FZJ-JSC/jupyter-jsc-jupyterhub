@@ -421,11 +421,11 @@ class BackendSpawner(Spawner):
                 "failed": True,
                 "html_message": e.jupyterhub_html_message,
             }
-            self.latest_events.append(failed_event)
             try:
-                self.stop()
+                await self.stop()
             except:
                 pass
+            self.latest_events.append(failed_event)
             raise e
 
         svc_name_suffix = self.get_svc_name_suffix()

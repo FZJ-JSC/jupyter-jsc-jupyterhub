@@ -671,7 +671,7 @@ class BackendSpawner(Spawner):
         cancelling_event = {
             "failed": False,
             "progress": 99,
-            "html_message": "<details><summary>{now}: {cancel_msg}</summary><p>{cancel_msg_detail}</p></details>",
+            "html_message": f"<details><summary>{now}: {cancel_msg}</summary><p>{cancel_msg_detail}</p></details>",
         }
         self.latest_events.append(cancelling_event)
 

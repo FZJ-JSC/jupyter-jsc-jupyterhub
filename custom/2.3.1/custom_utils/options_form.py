@@ -110,10 +110,14 @@ def get_system_infos(
                                     project in x.get("Accounts", "").split(",")
                                     or account in x.get("Users", "").split(",")
                                 )
-                                and ((not x.get("PartitionName", "")) or partition in x.get("PartitionName", "").split(","))
+                                and (
+                                    (not x.get("PartitionName", ""))
+                                    or partition
+                                    in x.get("PartitionName", "").split(",")
+                                )
                             )
                         ],
-                        key=lambda x: x['ReservationName']
+                        key=lambda x: x["ReservationName"],
                     )
                     for partition in partitions[system][account][project]
                 }
@@ -138,7 +142,7 @@ async def get_options_form(spawner, service, service_info):
 
     maintenance_list = get_maintenance_list()
     reservations_dict = get_reservations()
-    
+
     systems, accounts, projects, partitions, reservations = get_system_infos(
         spawner.log,
         custom_config,
@@ -150,7 +154,7 @@ async def get_options_form(spawner, service, service_info):
     def in_both_lists(list1, list2):
         return list(set(list1).intersection(set(list2)))
 
-    # Need this to manually create set of list if the list contains a dict 
+    # Need this to manually create set of list if the list contains a dict
     # since all elements of a set must be hashable and a dict is not
     def create_set(list):
         unique_list = []
@@ -266,9 +270,12 @@ async def get_options_form(spawner, service, service_info):
                                 reservations[system][account][project][partition],
                             )
                         reservations_used = [
-                            value for value in 
-                            create_set(reservations[system][account][project][partition]) 
-                            if value in create_set(allowed_lists_reservations)]
+                            value
+                            for value in create_set(
+                                reservations[system][account][project][partition]
+                            )
+                            if value in create_set(allowed_lists_reservations)
+                        ]
                         if (
                             "reservations" in replace_allowed_lists
                             and len(reservations_used) == 0
@@ -379,9 +386,12 @@ async def get_options_form(spawner, service, service_info):
                     minmax = minmax[0]
             else:
                 minmax = resources[system][partition][resource]["minmax"]
-            return value.replace("_min_", str(minmax[0])).replace(
-                "_max_", str(minmax[1])
-            )
+            if type(value) == str:
+                return value.replace("_min_", str(minmax[0])).replace(
+                    "_max_", str(minmax[1])
+                )
+            else:
+                return value
 
     resources_replaced = {
         option: {
@@ -463,7 +473,13 @@ def check_formdata_keys(data, custom_config):
     required_keys = {"vo", "name", "service", "system"}
     if data.get("system") in unicore_systems:
         required_keys = required_keys | {"account", "project", "partition"}
-    allowed_keys = required_keys | {"reservation", "nodes", "gpus", "runtime", "additional_spawn_options"}
+    allowed_keys = required_keys | {
+        "reservation",
+        "nodes",
+        "gpus",
+        "runtime",
+        "additional_spawn_options",
+    }
 
     if not required_keys <= keys:
         raise KeyError(f"Keys must include {required_keys}, but got {keys}.")

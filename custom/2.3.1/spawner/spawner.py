@@ -681,9 +681,17 @@ class BackendSpawner(Spawner):
             await self.user.stop(self.name)
         except asyncio.CancelledError:
             pass
-        await self._cancel_future(self._spawn_future)
 
+        # Update event html message to show current time
+        now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+        if event["html_message"].startswith("<details><summary>"):
+            event[
+                "html_message"
+            ] = f"<details><summary>{now}: {event['html_message'][len('<details><summary>'):]}"
+        else:
+            event["html_message"] = f"{now}: {event['html_message']}"
         self.latest_events.append(event)
+
         # Let generate_progress catch this event.
         # This will show the new event at the control panel site
         for _ in range(0, 2):
@@ -694,6 +702,7 @@ class BackendSpawner(Spawner):
         if not self._cancel_event_yielded:
             self.log.warning("Cancel event will not be displayed at control panel.")
 
+        await self._cancel_future(self._spawn_future)
         self._cancel_pending = False
         self.log.info("Cancel Done")
 

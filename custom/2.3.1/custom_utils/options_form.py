@@ -478,6 +478,7 @@ def check_formdata_keys(data, custom_config):
         "nodes",
         "gpus",
         "runtime",
+        "xserver",
         "additional_spawn_options",
     }
 

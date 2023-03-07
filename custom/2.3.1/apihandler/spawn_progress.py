@@ -145,16 +145,6 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
             self.set_status(204)
             return
 
-        if event.get("html_message", ""):
-            # Add timestamp
-            now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-            if event["html_message"].startswith("<details><summary>"):
-                event[
-                    "html_message"
-                ] = f"<details><summary>{now}: {event['html_message'][len('<details><summary>'):]}"
-            else:
-                event["html_message"] = f"{now}: {event['html_message']}"
-
         if event and event.get("failed", False):
             if event.get("html_message", "").endswith(user_cancel_message):
                 self.log.debug(
@@ -200,7 +190,18 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
             self.set_header("Content-Type", "text/plain")
             self.set_status(204)
             return
-        elif event:
+
+        if event.get("html_message", ""):
+            # Add timestamp
+            now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+            if event["html_message"].startswith("<details><summary>"):
+                event[
+                    "html_message"
+                ] = f"<details><summary>{now}: {event['html_message'][len('<details><summary>'):]}"
+            else:
+                event["html_message"] = f"{now}: {event['html_message']}"
+
+        if event:
             self.log.debug(
                 "APICall: SpawnUpdate",
                 extra={

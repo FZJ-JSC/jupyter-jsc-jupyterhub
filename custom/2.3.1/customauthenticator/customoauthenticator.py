@@ -61,16 +61,23 @@ class CustomLogoutHandler(OAuthLogoutHandler):
         if user.authenticator.enable_auth_state:
             tokens = {}
             auth_state = await user.get_auth_state()
-            if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
+            if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
+                "true",
+                "1",
+            ]:
                 metrics_logger = logging.getLogger("Metrics")
                 metrics_extras = {
                     "action": "logout",
                     "userid": user.id,
-                    "authenticator": auth_state.get('oauth_user', {}).get('used_authenticator_attr','unknown'),
+                    "authenticator": auth_state.get("oauth_user", {}).get(
+                        "used_authenticator_attr", "unknown"
+                    ),
                     "stopall": stop_all,
-                    "all_devices": all_devices
+                    "all_devices": all_devices,
                 }
-                metrics_logger.info(f"action={metrics_extras['action']};userid={metrics_extras['userid']};authenticator={metrics_extras['authenticator']};stopall={metrics_extras['stopall']};all_devices={metrics_extras['all_devices']}")
+                metrics_logger.info(
+                    f"action={metrics_extras['action']};userid={metrics_extras['userid']};authenticator={metrics_extras['authenticator']};stopall={metrics_extras['stopall']};all_devices={metrics_extras['all_devices']}"
+                )
                 self.log.info("logout", extra=metrics_extras)
             access_token = auth_state.get("access_token", None)
             if access_token:
@@ -250,7 +257,7 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
 
     async def authenticate(self, handler, data=None):
         user_info = await super().authenticate(handler, data)
-        safe_user_name = user_info["name"].replace('@', '_at_')
+        safe_user_name = user_info["name"].replace("@", "_at_")
         user_info["name"] = safe_user_name
         return user_info
 
@@ -380,5 +387,13 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         hpc_list.extend(to_add)
         if hpc_list:
             authentication["auth_state"]["oauth_user"]["hpc_infos_attribute"] = hpc_list
+            authenticator.log.info(
+                "Added hpc infos to auth_state",
+                extra={
+                    "action": "hpcaccounts",
+                    "username": username,
+                    "hpc_list": hpc_list,
+                },
+            )
 
         return authentication

@@ -237,6 +237,7 @@ class BackendSpawner(Spawner):
         if type(self.events) != dict:
             self.events = {}
         self.events["latest"] = self.latest_events
+        self.stop_event = {}
 
         self._cancel_pending = False
         self._cancel_event_yielded = False

@@ -1,0 +1,29 @@
+diff --color -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
+--- ../jupyterhub/jupyterhub/handlers/base.py	2023-03-09 16:05:54
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2023-03-09 16:06:47
+@@ -945,6 +945,17 @@
+             raise web.HTTPError(
+                 429, "Active user limit exceeded. Try again in a few minutes."
+             )
++        
++        spawner = user.spawners[server_name]
++        # Do not attempt spawn if cancel is still in progress
++        if spawner._cancel_pending:
++            try:
++                done, pending = await asyncio.wait([spawner._spawn_future])
++                assert not pending
++            except Exception as e:
++                raise web.HTTPError(
++                    409, e.message
++                )
+ 
+         tic = IOLoop.current().time()
+ 
+@@ -963,7 +974,6 @@
+             '/%i' % active_server_limit if active_server_limit else '',
+         )
+ 
+-        spawner = user.spawners[server_name]
+         # set spawn_pending now, so there's no gap where _spawn_pending is False
+         # while we are waiting for _proxy_pending to be set
+         spawner._spawn_pending = True

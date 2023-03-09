@@ -33,6 +33,7 @@ class BackendSpawner(Spawner):
 
     latest_events = []
     events = {}
+    stop_event = {}
     start_id = ""
     skip_stop = False
     clear_events = True
@@ -236,6 +237,7 @@ class BackendSpawner(Spawner):
         if type(self.events) != dict:
             self.events = {}
         self.events["latest"] = self.latest_events
+        self.stop_event = {}
 
         self._cancel_pending = False
         self._cancel_event_yielded = False
@@ -677,20 +679,18 @@ class BackendSpawner(Spawner):
 
         await self.stop()
 
-        try:
-            await self.user.stop(self.name)
-        except asyncio.CancelledError:
-            pass
-
-        # Update event html message to show current time
-        now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+        # Save stop event for post stop hook
         if event["html_message"].startswith("<details><summary>"):
             event[
                 "html_message"
             ] = f"<details><summary>{now}: {event['html_message'][len('<details><summary>'):]}"
         else:
             event["html_message"] = f"{now}: {event['html_message']}"
-        self.latest_events.append(event)
+        self.stop_event = event
+        try:
+            await self.user.stop(self.name)
+        except asyncio.CancelledError:
+            pass
 
         # Let generate_progress catch this event.
         # This will show the new event at the control panel site

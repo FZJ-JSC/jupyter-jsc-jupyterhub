@@ -71,52 +71,26 @@ class SpawnProgressUNICOREUpdateAPIHandler(APIHandler):
             # It will also cancel the current spawn attempt.
             await spawner.poll(force_cancel=True)
         else:
-            # It's in Running (UNICORE wise) state. Let's poll manually
-            # and check the slurm status. If it's in CONFIGURING we'll
-            # show this to the user
-            auth_state = await user.get_auth_state()
-
-            req_prop = spawner._get_req_prop(auth_state)
-            service_url = req_prop.get("urls", {}).get("services", "None")
-
-            req = HTTPRequest(
-                f"{service_url}{spawner.name}/",
-                method="GET",
-                headers=req_prop["headers"],
-                request_timeout=req_prop["request_timeout"],
-                validate_cert=req_prop["validate_cert"],
-                ca_certs=req_prop["ca_certs"],
-            )
-            try:
-                resp_json = await drf_request(
-                    req,
-                    self.log,
-                    user.authenticator.fetch,
-                    "poll",
-                    user.name,
-                    spawner._log_name,
-                    parse_json=True,
-                    raise_exception=True,
-                )
-            except Exception:
-                # The Job Status will changed over time, we'll check again then
-                self.log.warning(f"Unexpected error ( {body} )", exc_info=True)
-                self.set_status(200)
-                return
-            else:
-                slurm_state = resp_json.get("bss_details", {}).get("JobState", "")
-                if slurm_state == "CONFIGURING":
-                    # Let's inform the user that the node is currently booting.
-                    # This will take around 5 minutes. Any other state: do nothing
+            bssStatus = body.get("bssStatus", "")
+            # It's in Running (UNICORE wise) state. We can now check for bssStatus to get more details
+            for key, bssDetails in (
+                custom_config.get("unicore_updates", {}).get("bssStatus", {}).items()
+            ):
+                if key == bssStatus:
                     now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-                    summary = "The node(s) for your job are currently booting up. This will take a few minutes."
-                    details = f"Slurm job details: {resp_json.get('bss_details')}"
+                    summary = bssDetails.get("summary", f"Slurm status: {key}")
+                    details = bssDetails.get(
+                        "details",
+                        "You'll receive more information, when your slurm job proceeds.",
+                    )
+                    progress = int(bssDetails.get("progress", 35))
                     event = {
                         "failed": False,
-                        "progress": 40,
+                        "progress": progress,
                         "html_message": f"<details><summary>{now}: {summary}</summary>{details}</details>",
                     }
                     spawner.latest_events.append(event)
+
         self.set_status(200)
 
 

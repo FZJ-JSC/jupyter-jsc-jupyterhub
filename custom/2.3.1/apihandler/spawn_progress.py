@@ -239,7 +239,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                     failed_event = {
                         "progress": 100,
                         "failed": True,
-                        "html_message": f"<details><summary>{now}: Could not setup tunnel</summary>{e.error_detail}</details>",
+                        "html_message": f"<details><summary>Could not setup tunnel</summary>{e.error_detail}</details>",
                     }
                     self.log.exception(
                         f"Could not setup tunnel for {user_name}:{server_name}",
@@ -257,7 +257,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                     failed_event = {
                         "progress": 100,
                         "failed": True,
-                        "html_message": f"<details><summary>{now}: Could not setup tunnel</summary>{str(e)}</details>",
+                        "html_message": f"<details><summary>Could not setup tunnel</summary>{str(e)}</details>",
                     }
                     self.log.exception(
                         f"Could not setup tunnel for {user_name}:{server_name}",

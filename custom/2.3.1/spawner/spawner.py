@@ -526,7 +526,6 @@ class BackendSpawner(Spawner):
             if self._spawn_pending:
                 # During the spawn progress we've received that it's already stopped.
                 # We want to show the error message to the user
-                now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
                 summary = resp_json.get("details", {}).get("error", "Start failed.")
                 details = resp_json.get("details", {}).get(
                     "detailed_error", "No details available."
@@ -534,7 +533,7 @@ class BackendSpawner(Spawner):
                 event = {
                     "failed": True,
                     "progress": 100,
-                    "html_message": f"<details><summary>{now}: {summary}</summary>{details}</details>",
+                    "html_message": f"<details><summary>{summary}</summary>{details}</details>",
                 }
                 await self.cancel(event)
                 return 0
@@ -683,9 +682,9 @@ class BackendSpawner(Spawner):
         if event["html_message"].startswith("<details><summary>"):
             event[
                 "html_message"
-            ] = f"<details><summary>{now}: {event['html_message'][len('<details><summary>'):]}"
+            ] = f"<details><summary>$now: {event['html_message'][len('<details><summary>'):]}"
         else:
-            event["html_message"] = f"{now}: {event['html_message']}"
+            event["html_message"] = f"$now: {event['html_message']}"
         self.stop_event = event
         try:
             await self.user.stop(self.name)

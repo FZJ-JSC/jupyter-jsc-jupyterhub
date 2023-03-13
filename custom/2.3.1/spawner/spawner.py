@@ -683,9 +683,9 @@ class BackendSpawner(Spawner):
         if event["html_message"].startswith("<details><summary>"):
             event[
                 "html_message"
-            ] = f"<details><summary>{now}: {event['html_message'][len('<details><summary>'):]}"
+            ] = f"<details><summary>$now: {event['html_message'][len('<details><summary>'):]}"
         else:
-            event["html_message"] = f"{now}: {event['html_message']}"
+            event["html_message"] = f"$now: {event['html_message']}"
         self.stop_event = event
         try:
             await self.user.stop(self.name)

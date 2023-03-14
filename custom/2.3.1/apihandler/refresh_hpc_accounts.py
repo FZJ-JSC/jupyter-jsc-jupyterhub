@@ -21,6 +21,7 @@ class HPCAccountUpdatesORM(Base):
 
     last_update = Column(DateTime, default=datetime.now(timezone.utc))
 
+    @classmethod
     def update(cls, db):
         """Find a group by user_id.
         Returns None if not found.

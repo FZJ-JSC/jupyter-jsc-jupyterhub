@@ -15,7 +15,7 @@ from sqlalchemy import Integer
 class HPCAccountUpdatesORM(Base):
     """Information for hpc account updates."""
 
-    __tablename__ = "HPCAccountUpdates"
+    __tablename__ = "hpc_account_updates"
 
     id = Column(Integer, primary_key=True)
 

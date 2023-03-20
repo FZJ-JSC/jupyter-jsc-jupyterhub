@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -69,7 +70,15 @@ class SpawnProgressUNICOREUpdateAPIHandler(APIHandler):
             # spawner.poll will check the current status via UnicoreMgr.
             # This will download the logs and show them to the user.
             # It will also cancel the current spawn attempt.
-            await spawner.poll(force_cancel=True)
+            self.log.debug(
+                "Cancel spawner",
+                extra={
+                    "uuidcode": spawner.name,
+                    "username": user.name,
+                    "userid": user.id,
+                },
+            )
+            asyncio.create_task(spawner.poll(force_cancel=True))
         else:
             bssStatus = body.get("bssStatus", "")
             # It's in Running (UNICORE wise) state. We can now check for bssStatus to get more details
@@ -91,6 +100,10 @@ class SpawnProgressUNICOREUpdateAPIHandler(APIHandler):
                     }
                     spawner.latest_events.append(event)
 
+        self.log.debug(
+            "Finish unicoreupdate request",
+            extra={"uuidcode": spawner.name, "username": user.name, "userid": user.id},
+        )
         self.set_status(200)
 
 

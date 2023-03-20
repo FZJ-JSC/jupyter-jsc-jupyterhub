@@ -730,6 +730,22 @@ class BackendSpawner(Spawner):
             )
         raise NotImplementedError(f"Service type {service} from {service} unknown")
 
+    def post_stop_hook(self, spawner):
+        event = spawner.stop_event
+        # Update event html message to show current time
+        now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+        try:
+            event_string = event["html_message"]
+            if event_string.startswith("<details><summary>$now"):
+                event_string = f"<details><summary>{now}{event_string[len('<details><summary>$now'):]}"
+                event["html_message"] = event_string
+        except:
+            spawner.log.exception(
+                "Could not run post_stop_hook", extra={"uuidcode": spawner.name}
+            )
+        finally:
+            spawner.latest_events.append(event)
+
     async def options_from_form(self, formdata):
         custom_config = self.user.authenticator.custom_config
         service = formdata.get("service", [""])[0]

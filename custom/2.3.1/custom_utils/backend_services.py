@@ -1,7 +1,7 @@
 import datetime
 import json
 import os
-import uuid
+import time
 
 from tornado.httpclient import HTTPClientError
 from tornado.httpclient import HTTPResponse
@@ -77,10 +77,21 @@ async def drf_request(
         },
     )
     try:
+        tic = time.time()
         resp = await auth_fetch(req, parse_json=parse_json)
+        toc = time.time() - tic
+        app_log.debug(
+            "Backend request duration",
+            extra={
+                "uuidcode": req.headers["uuidcode"],
+                "log_name": log_name,
+                "user": username,
+                "duration": toc,
+            },
+        )
         return resp
     except Exception as e:
-        if getattr(e, 'code', 500) == 404:
+        if getattr(e, "code", 500) == 404:
             if raise_exception:
                 raise e
             else:
@@ -116,5 +127,7 @@ async def drf_request(
             jupyterhub_html_message = (
                 f"<details><summary>{now}: {error}</summary>{error_detail}</details>"
             )
-            raise BackendException(error, error_detail, jupyterhub_html_message, getattr(e, 'code', 500))
+            raise BackendException(
+                error, error_detail, jupyterhub_html_message, getattr(e, "code", 500)
+            )
     return {}

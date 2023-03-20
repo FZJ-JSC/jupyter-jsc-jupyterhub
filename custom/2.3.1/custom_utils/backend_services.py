@@ -78,17 +78,21 @@ async def drf_request(
     )
     try:
         tic = time.time()
-        resp = await auth_fetch(req, parse_json=parse_json)
-        toc = time.time() - tic
-        app_log.debug(
-            "Backend request duration",
-            extra={
-                "uuidcode": req.headers["uuidcode"],
-                "log_name": log_name,
-                "user": username,
-                "duration": toc,
-            },
-        )
+        try:
+            resp = await auth_fetch(req, parse_json=parse_json)
+        except Exception as tice:
+            raise tice
+        finally:
+            toc = time.time() - tic
+            app_log.debug(
+                "Backend request duration",
+                extra={
+                    "uuidcode": req.headers["uuidcode"],
+                    "log_name": log_name,
+                    "user": username,
+                    "duration": toc,
+                },
+            )
         return resp
     except Exception as e:
         if getattr(e, "code", 500) == 404:

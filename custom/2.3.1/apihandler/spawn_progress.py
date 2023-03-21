@@ -86,7 +86,7 @@ class SpawnProgressUNICOREUpdateAPIHandler(APIHandler):
                 custom_config.get("unicore_updates", {}).get("bssStatus", {}).items()
             ):
                 if key == bssStatus:
-                    now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+                    now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
                     summary = bssDetails.get("summary", f"Slurm status: {key}")
                     details = bssDetails.get(
                         "details",

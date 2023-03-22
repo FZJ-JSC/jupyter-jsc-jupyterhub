@@ -173,7 +173,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                         "event": event,
                     },
                 )
-            await spawner.cancel(event)
+            asyncio.create_task(spawner.cancel(event))
             self.set_header("Content-Type", "text/plain")
             self.set_status(204)
             return
@@ -264,7 +264,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                             "event": failed_event,
                         },
                     )
-                    await spawner.cancel(failed_event)
+                    asyncio.create_task(spawner.cancel(failed_event))
                 except Exception as e:
                     now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
                     failed_event = {
@@ -282,7 +282,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                             "event": failed_event,
                         },
                     )
-                    await spawner.cancel(failed_event)
+                    asyncio.create_task(spawner.cancel(failed_event))
 
             self.set_header("Content-Type", "text/plain")
             self.set_status(204)

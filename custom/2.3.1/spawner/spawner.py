@@ -732,6 +732,8 @@ class BackendSpawner(Spawner):
 
     def post_stop_hook(self, spawner):
         event = spawner.stop_event
+        if not event:
+            return
         # Update event html message to show current time
         now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
         try:

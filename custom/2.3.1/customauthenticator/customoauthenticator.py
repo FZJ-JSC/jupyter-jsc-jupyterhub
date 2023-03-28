@@ -1,6 +1,7 @@
 import copy
 import json
 import logging
+import operator
 import os
 import re
 import time
@@ -11,6 +12,8 @@ from urllib.parse import urlencode
 
 from custom_utils import get_vos
 from custom_utils import VoException
+from jupyterhub.orm import Spawner as orm_spawner
+from jupyterhub.orm import User as orm_user
 from jupyterhub.utils import new_token
 from oauthenticator.generic import GenericOAuthenticator
 from oauthenticator.oauth2 import OAuthLoginHandler
@@ -189,6 +192,7 @@ class CustomLoginHandler(OAuthLoginHandler):
 
 
 custom_config_timeout = os.environ.get("CUSTOM_CONFIG_CACHE_TIME", 60)
+user_count_cache_timeout = os.environ.get("USER_COUNT_CACHE_TIME", 60)
 
 
 class CustomGenericOAuthenticator(GenericOAuthenticator):
@@ -229,6 +233,44 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         except:
             self.log.warning("Could not load custom config file.", exc_info=True)
             ret = {}
+        return ret
+
+    @TimedCacheProperty(timeout=user_count_cache_timeout)
+    def user_count(self):
+        self.log.debug("Update user_count via database ...")
+        running_spawner = (
+            self.db.query(orm_spawner).filter(orm_spawner.server_id.isnot(None)).all()
+        )
+        systems = [x.user_options.get("system") for x in running_spawner if x]
+        systems_partitions = [
+            f'{x.user_options.get("system")}:{x.user_options.get("partition", "N/A")}'
+            for x in running_spawner
+            if x
+        ]
+        unique_systems = set(systems)
+        ret = {
+            key: {
+                "total": operator.countOf(systems, key),
+                "partitions": {
+                    partition_key: operator.countOf(
+                        systems_partitions, f"{key}:{partition_key}"
+                    )
+                    for partition_key in [
+                        x.split(":")[1] for x in systems_partitions if x.startswith(key)
+                    ]
+                },
+            }
+            for key in unique_systems
+        }
+        active_minutes = self.custom_config.get("user_count", {}).get(
+            "active_minutes", 60
+        )
+        active_range = datetime.utcnow() - timedelta(minutes=active_minutes)
+        active_users = (
+            self.db.query(orm_user).filter(orm_user.last_activity > active_range).all()
+        )
+        ret["jupyterhub"] = len(active_users)
+        self.log.debug("Update user_count via database ... done", extra=ret)
         return ret
 
     extra_params_allowed_runtime = Union(

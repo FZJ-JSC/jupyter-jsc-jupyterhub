@@ -238,39 +238,49 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
     @TimedCacheProperty(timeout=user_count_cache_timeout)
     def user_count(self):
         self.log.debug("Update user_count via database ...")
-        running_spawner = (
-            self.db.query(orm_spawner).filter(orm_spawner.server_id.isnot(None)).all()
-        )
-        systems = [x.user_options.get("system") for x in running_spawner if x]
-        systems_partitions = [
-            f'{x.user_options.get("system")}:{x.user_options.get("partition", "N/A")}'
-            for x in running_spawner
-            if x
-        ]
-        unique_systems = set(systems)
-        ret = {
-            key: {
-                "total": operator.countOf(systems, key),
-                "partitions": {
-                    partition_key: operator.countOf(
-                        systems_partitions, f"{key}:{partition_key}"
-                    )
-                    for partition_key in [
-                        x.split(":")[1] for x in systems_partitions if x.startswith(key)
-                    ]
-                },
+        try:
+            running_spawner = (
+                self.db.query(orm_spawner)
+                .filter(orm_spawner.server_id.isnot(None))
+                .all()
+            )
+            systems = [x.user_options.get("system") for x in running_spawner if x]
+            systems_partitions = [
+                f'{x.user_options.get("system")}:{x.user_options.get("partition", "N/A")}'
+                for x in running_spawner
+                if x
+            ]
+            unique_systems = set(systems)
+            ret = {
+                key: {
+                    "total": operator.countOf(systems, key),
+                    "partitions": {
+                        partition_key: operator.countOf(
+                            systems_partitions, f"{key}:{partition_key}"
+                        )
+                        for partition_key in [
+                            x.split(":")[1]
+                            for x in systems_partitions
+                            if x.startswith(key)
+                        ]
+                    },
+                }
+                for key in unique_systems
             }
-            for key in unique_systems
-        }
-        active_minutes = self.custom_config.get("user_count", {}).get(
-            "active_minutes", 60
-        )
-        active_range = datetime.utcnow() - timedelta(minutes=active_minutes)
-        active_users = (
-            self.db.query(orm_user).filter(orm_user.last_activity > active_range).all()
-        )
-        ret["jupyterhub"] = len(active_users)
-        self.log.debug("Update user_count via database ... done", extra=ret)
+            active_minutes = self.custom_config.get("user_count", {}).get(
+                "active_minutes", 60
+            )
+            active_range = datetime.utcnow() - timedelta(minutes=active_minutes)
+            active_users = (
+                self.db.query(orm_user)
+                .filter(orm_user.last_activity > active_range)
+                .all()
+            )
+            ret["jupyterhub"] = len(active_users)
+            self.log.debug("Update user_count via database ... done", extra=ret)
+        except:
+            self.log.exception("Could not create user_count dict")
+            ret = {}
         return ret
 
     extra_params_allowed_runtime = Union(

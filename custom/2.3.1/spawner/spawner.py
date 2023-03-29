@@ -607,6 +607,9 @@ class BackendSpawner(Spawner):
             except:
                 pass
 
+        # Prevent multiple communication to the backend
+        self.skip_stop = True
+
     async def _generate_progress(self):
         """Private wrapper of progress generator
 

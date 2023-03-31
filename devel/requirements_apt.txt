@@ -5,13 +5,12 @@ curl
 libc6
 libstdc++6
 locales
+nodejs
+npm
 openssh-server
 python3-dev
 python3-pip
 python3-pycurl
-python3-m2crypto
-nodejs
-npm
 rsync
 tar
 vim

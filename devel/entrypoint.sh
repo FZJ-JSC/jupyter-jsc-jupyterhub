@@ -4,7 +4,6 @@ export PYTHONPATH=${PYTHONPATH}:/src/jupyterhub:/src/jupyterhub-custom
 USERNAME=jovyan
 
 mkdir -p /home/${USERNAME}/.ssh
-chmod -R 400 /home/${USERNAME}/.ssh/*
 chown -R ${USERNAME}:users /home/${USERNAME}/.ssh
 
 sed -i -r -e "s/^#PasswordAuthentication yes/PasswordAuthentication no/g" -e "s/^AllowTcpForwarding no/AllowTcpForwarding yes/g" -e "s/^#Port 22/Port 2222/g" /etc/ssh/sshd_config
@@ -12,7 +11,6 @@ mkdir -p /run/sshd
 /usr/sbin/sshd -f /etc/ssh/sshd_config -E /home/${USERNAME}/sshd.log
 
 mkdir -p /home/${USERNAME}/.vscode
-chmod -R 400 /home/${USERNAME}/.vscode/*
 chown -R ${USERNAME}:users /home/${USERNAME}/.vscode
 
 cp -rp /src/jupyterhub /src/jupyterhub-patched

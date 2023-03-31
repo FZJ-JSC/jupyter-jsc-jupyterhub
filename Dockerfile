@@ -14,10 +14,6 @@ RUN apt-get update && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Add requirements
-COPY --chown=jovyan:users ./requirements.txt /tmp/requirements.txt
-RUN pip3 install -r /tmp/requirements.txt
-
 # Add custom files
 COPY --chown=jovyan:users ./custom/${JUPYTERHUB_VERSION} /src/jupyterhub-custom
 RUN pip3 install -r /src/jupyterhub-custom/requirements.txt

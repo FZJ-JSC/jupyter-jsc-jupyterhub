@@ -17,10 +17,6 @@ RUN apt-get update && \
 COPY devel/requirements_build.txt /tmp/requirements_build.txt
 RUN pip3 install -r /tmp/requirements_build.txt
 
-# Add requirements
-COPY --chown=jovyan:users ./requirements.txt /tmp/requirements.txt
-RUN pip3 install -r /tmp/requirements.txt
-
 # Add custom files
 COPY --chown=jovyan:users ./custom/${JUPYTERHUB_VERSION} /src/jupyterhub-custom
 RUN pip3 install -r /src/jupyterhub-custom/requirements.txt

@@ -18,7 +18,7 @@ chown -R ${USERNAME}:users /home/${USERNAME}/.vscode
 cp -rp /src/jupyterhub /src/jupyterhub-patched
 pip install -e /src/jupyterhub-patched/
 # dev-requirements comes from vanilla JHub
-pip install -r /src/jupyterhub/dev-requirements.txt
+pip install -r /src/jupyterhub/requirements.txt
 
 ln -s /src/jupyterhub-patched /home/${USERNAME}/jupyterhub-patched
 ln -s /src/jupyterhub-custom /home/${USERNAME}/jupyterhub-custom

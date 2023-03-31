@@ -28,7 +28,7 @@ cp -r /usr/local/etc/jupyterhub/jupyterhub_config.py /home/${USERNAME}/jupyterhu
 cp -r /usr/local/etc/jupyterhub/z2jh.py /home/${USERNAME}/jupyterhub-config/.
 cp -r /usr/local/etc/jupyterhub/secret/..data/* /home/${USERNAME}/jupyterhub-config/secret/.
 cp -r /usr/local/etc/jupyterhub/config/..data/* /home/${USERNAME}/jupyterhub-config/config/.
-sed -i -e 's@/usr/local/etc/jupyterhub@/home/${USERNAME}/jupyterhub-config/g' /home/${USERNAME}/jupyterhub-config/*
+sed -i -e 's@/usr/local/etc/jupyterhub@/home/${USERNAME}/jupyterhub-config@g' /home/${USERNAME}/jupyterhub-config/*
 
 
 chown -R ${USERNAME}:users /home/${USERNAME}

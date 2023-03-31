@@ -21,6 +21,7 @@ cp -rp /src/jupyterhub /src/jupyterhub-patched
 ln -s /src/jupyterhub-patched /home/${USERNAME}/jupyterhub-patched
 ln -s /src/jupyterhub-custom /home/${USERNAME}/jupyterhub-custom
 ln -s /src/jupyterhub-static /home/${USERNAME}/jupyterhub-static
+ln -s /mnt/shared-data /home/${USERNAME}/shared-data
 
 mkdir -p /home/${USERNAME}/jupyterhub-config/secret
 mkdir -p /home/${USERNAME}/jupyterhub-config/config

@@ -14,7 +14,6 @@ from custom_utils.backend_services import BackendException
 from custom_utils.backend_services import drf_request
 from custom_utils.backend_services import drf_request_properties
 from custom_utils.options_form import check_formdata_keys
-from custom_utils.options_form import get_options_form
 from custom_utils.options_form import get_options_from_form
 from jupyterhub.spawner import Spawner
 from jupyterhub.utils import maybe_future
@@ -22,7 +21,10 @@ from jupyterhub.utils import url_path_join
 from tornado.httpclient import HTTPClientError
 from tornado.httpclient import HTTPRequest
 from tornado.ioloop import PeriodicCallback
+from traitlets import Bool
 from traitlets import Integer
+
+# from custom_utils.options_form import get_options_form
 
 
 class BackendSpawner(Spawner):
@@ -46,6 +48,13 @@ class BackendSpawner(Spawner):
 	self.poll_interval. Each Spawner object will have it's own interval.
         """,
     ).tag(config=True)
+
+    activate_spawner_events = Bool(
+        True,
+        help="""
+        Use asyncio.Events from Authenticator, to enable SSE to `/hub/home`
+        """,
+    )
 
     def get_state(self):
         """get the current state"""
@@ -83,6 +92,9 @@ class BackendSpawner(Spawner):
             self.svc_name = state["svc_name"]
         if "start_id" in state:
             self.start_id = state["start_id"]
+
+        if self.activate_spawner_events:
+            self.create_spawner_events_hook()
 
     def clear_state(self):
         """clear any state (called after shutdown)"""
@@ -220,6 +232,8 @@ class BackendSpawner(Spawner):
         return match.group()
 
     async def start(self):
+        if self._cancel_pending:
+            raise Exception("Server is in the process of stopping, please wait.")
         # Save latest events with start event time
         if self.latest_events != []:
             try:
@@ -241,6 +255,11 @@ class BackendSpawner(Spawner):
 
         self._cancel_pending = False
         self._cancel_event_yielded = False
+
+        if self.activate_spawner_events:
+            self.create_spawner_events_hook()
+            self.user.authenticator.user_spawner_events[self.user.id]["start"].set()
+
         return await self._start()
 
     async def create_certs(self):
@@ -279,6 +298,19 @@ class BackendSpawner(Spawner):
             with open(path, "r") as f:
                 ret[key] = f.read()
         return ret
+
+    def create_spawner_events_hook(self):
+        # We use asyncio.Event on `/hub/home` to send information to the frontend without polling.
+        # The event objects are stored in genericoauthenticator.
+        # This function will be used in two cases:
+        #    - start.
+        #    - load_state. (so that they're available after a hub restart)
+
+        if self.user.id not in self.user.authenticator.user_spawner_events.keys():
+            self.user.authenticator.user_spawner_events[self.user.id] = {
+                "start": asyncio.Event(),
+                "stop": asyncio.Event(),
+            }
 
     async def _start(self):
         config = self.user.authenticator.custom_config
@@ -544,11 +576,15 @@ class BackendSpawner(Spawner):
         return None
 
     def stop(self):
+        if self.activate_spawner_events:
+            self.create_spawner_events_hook()
+            self.user.authenticator.user_spawner_events[self.user.id]["stop"].set()
         return asyncio.ensure_future(self._stop())
 
     async def _stop(self):
         if self.skip_stop:
             return
+
         auth_state = await self.user.get_auth_state()
 
         req_prop = self._get_req_prop(auth_state)
@@ -663,6 +699,7 @@ class BackendSpawner(Spawner):
     async def cancel(self, event):
         self.log.info("Cancel Start")
         self._cancel_pending = True
+        self._stop_pending = True
 
         cancel_msg = "Cancel in progress"
         cancel_msg_detail = "We're stopping your service. This may take a few seconds."
@@ -706,32 +743,33 @@ class BackendSpawner(Spawner):
 
         await self._cancel_future(self._spawn_future)
         self._cancel_pending = False
+        self._stop_pending = False
         self.log.info("Cancel Done")
 
-    async def options_form(self, spawner):
-        query_options = {}
-        # When receiving options_form via APIHandler no handler is defined
-        if spawner.handler:
-            for key, byte_list in spawner.handler.request.query_arguments.items():
-                query_options[key] = [bs.decode("utf8") for bs in byte_list]
-            service = query_options.get("service", "JupyterLab")
-            if type(service) == list:
-                service = service[0]
-        else:
-            try:
-                service = spawner.user_options.get("service", "JupyterLab").split("/")[
-                    0
-                ]
-            except:
-                self.log.exception("Could not receive options_form")
-                service = ""
+    # async def options_form(self, spawner):
+    #     query_options = {}
+    #     # When receiving options_form via APIHandler no handler is defined
+    #     if spawner.handler:
+    #         for key, byte_list in spawner.handler.request.query_arguments.items():
+    #             query_options[key] = [bs.decode("utf8") for bs in byte_list]
+    #         service = query_options.get("service", "JupyterLab")
+    #         if type(service) == list:
+    #             service = service[0]
+    #     else:
+    #         try:
+    #             service = spawner.user_options.get("service", "JupyterLab").split("/")[
+    #                 0
+    #             ]
+    #         except:
+    #             self.log.exception("Could not receive options_form")
+    #             service = ""
 
-        services = self.user.authenticator.custom_config.get("services", {})
-        if service in services.keys():
-            return await get_options_form(
-                spawner, service, services[service].get("options", {})
-            )
-        raise NotImplementedError(f"Service type {service} from {service} unknown")
+    #     services = self.user.authenticator.custom_config.get("services", {})
+    #     if service in services.keys():
+    #         return await get_options_form(
+    #             spawner, service, services[service].get("options", {})
+    #         )
+    #     raise NotImplementedError(f"Service type {service} from {service} unknown")
 
     def post_stop_hook(self, spawner):
         event = spawner.stop_event

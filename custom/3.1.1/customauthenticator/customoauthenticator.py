@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 
 from custom_utils import get_vos
 from custom_utils import VoException
+from custom_utils.options_form import get_options_form
 from jupyterhub.orm import Spawner as orm_spawner
 from jupyterhub.orm import User as orm_user
 from jupyterhub.utils import new_token
@@ -21,8 +22,8 @@ from oauthenticator.oauth2 import OAuthLogoutHandler
 from oauthenticator.traitlets import Callable
 from tornado.httpclient import HTTPClientError
 from tornado.httpclient import HTTPRequest
-from traitlets import Bool
 from traitlets import Dict
+from traitlets import List
 from traitlets import Unicode
 from traitlets import Union
 
@@ -207,33 +208,34 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         help="""The url retrieving information about the access token""",
     )
 
-    # Change default to True
-    refresh_pre_spawn = Bool(
-        True,
+    custom_config_auth_state_keys = List(
+        ["services", "additional_spawn_options", "announcement", "vos", "systems"],
         config=True,
-        help="""Force refresh of auth prior to spawn.
-
-        This forces :meth:`.refresh_user` to be called prior to launching
-        a server, to ensure that auth state is up-to-date.
-
-        This can be important when e.g. auth tokens that may have expired
-        are passed to the spawner via environment variables from auth_state.
-
-        If refresh_user cannot refresh the user auth data,
-        launch will fail until the user logs in again.
+        help="""
+        Define which parts of custom_config should be stored in
+        auth_state
         """,
     )
+    _custom_config_cache = {}
+    _custom_config_last_update = 0
 
     @TimedCacheProperty(timeout=custom_config_timeout)
     def custom_config(self):
-        self.log.debug("Load custom config file.")
-        try:
-            with open(self.custom_config_file, "r") as f:
-                ret = json.load(f)
-        except:
-            self.log.warning("Could not load custom config file.", exc_info=True)
-            ret = {}
-        return ret
+        # Only update custom_config, if it has changed on disk
+        last_change = os.path.getmtime(self.custom_config_file)
+        if last_change > self._custom_config_last_update:
+            self.log.debug("Load custom config file.")
+            try:
+                with open(self.custom_config_file, "r") as f:
+                    ret = json.load(f)
+                self._custom_config_last_update = last_change
+            except:
+                self.log.warning("Could not load custom config file.", exc_info=True)
+                ret = {}
+            self._custom_config_cache = ret
+            return ret
+        else:
+            return self._custom_config_cache
 
     @TimedCacheProperty(timeout=user_count_cache_timeout)
     def user_count(self):
@@ -283,6 +285,17 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
             ret = {}
         return ret
 
+    # We use asyncio.Events on /hub/home to receive updates for spawning JupyterLabs.
+    # We store them in this custom authenticator, to avoid patching jupyterhub/user.py
+    # dict structure:
+    #   {
+    #     <userid>: {
+    #       "start": start_event,
+    #       "stop": stop_event
+    #     }
+    #   }
+    user_spawner_events = {}
+
     extra_params_allowed_runtime = Union(
         [Dict(), Callable()],
         config=True,
@@ -313,14 +326,37 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         user_info["name"] = safe_user_name
         return user_info
 
+    async def update_auth_state_custom_config(self, authentication, force=False):
+        last_change = os.path.getmtime(self.custom_config_file)
+        if (
+            force
+            or authentication["auth_state"].get("custom_config_update", 0) < last_change
+        ):
+            if "custom_config" not in authentication["auth_state"].keys():
+                authentication["auth_state"]["custom_config"] = {}
+            for key in self.custom_config_auth_state_keys:
+                if key in self.custom_config.keys():
+                    authentication["auth_state"]["custom_config"][
+                        key
+                    ] = self.custom_config[key]
+            authentication["auth_state"]["custom_config_update"] = last_change
+            return authentication
+        else:
+            # User is up to date
+            return True
+
     async def refresh_user(self, user, handler=None):
+        # We use refresh_user to update auth_state, even if
+        # the access token is not outdated yet.
         auth_state = await user.get_auth_state()
         if not auth_state:
             return False
-        threshold = 2 * self.auth_refresh_age
+        authentication = {"auth_state": auth_state}
+        threshold = 5 * self.auth_refresh_age
         now = time.time()
         rest_time = int(auth_state.get("exp", now)) - now
-        if threshold >= rest_time:
+        if threshold > rest_time:
+            ## New access token required
             try:
                 refresh_token_save = auth_state.get("refresh_token", None)
                 self.log.debug(
@@ -355,11 +391,9 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
 
                     if not token_resp_json.get("refresh_token", None):
                         token_resp_json["refresh_token"] = refresh_token_save
-                    authentication = {
-                        "auth_state": self._create_auth_state(
-                            token_resp_json, user_data_resp_json
-                        )
-                    }
+                    authentication["auth_state"] = self._create_auth_state(
+                        token_resp_json, user_data_resp_json
+                    )
                     ret = await self.run_post_auth_hook(handler, authentication)
             except:
                 self.log.exception(
@@ -369,10 +403,16 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                 )
                 ret = False
         else:
-            ret = True
+            # Update custom config, if neccessary
+            ret = await self.update_auth_state_custom_config(authentication)
         return ret
 
     async def post_auth_hook(self, authenticator, handler, authentication):
+        # After the user was authenticated we collect additional information
+        #  - expiration of access token (so we can renew it before it expires)
+        #  - last login (additional information for the user)
+        #  - used authenticator (to classify user)
+        #  - hpc_list (allowed systems, projects, partitions, etc.)
         access_token = authentication["auth_state"]["access_token"]
         headers = {
             "Accept": "application/json",
@@ -406,6 +446,8 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         handler.statsd.incr(f"login.authenticator.{used_authenticator}")
         handler.statsd.incr(f"login.hpc_infos_via_unity.{hpc_infos_via_unity}")
 
+        # In this part we classify the user in specific VOs.
+        # This has to be replaced with the official JHub RBAC feature
         username = authentication.get("name", "unknown")
         admin = authentication.get("admin", False)
 
@@ -419,6 +461,10 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         authentication["auth_state"]["vo_active"] = vo_active
         authentication["auth_state"]["vo_available"] = vo_available
 
+        # Now we collect the hpc_list information and create a useful python dict from it
+
+        ## First let's add some "default_partitions", that should be added to each user,
+        ## even if it's listed in hpc_list
         default_partitions = self.custom_config.get("default_partitions")
         to_add = []
         if type(hpc_list) == str:
@@ -447,5 +493,31 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                     "hpc_list": hpc_list,
                 },
             )
+
+        ## With this list we can now create the spawner.options_form value.
+        ## We will store this in the auth_state instead of the Spawner:
+        ##
+        ## - We want to skip the spawn.html ("Server Options") page. The user should
+        ##   configure the JupyterLab on /hub/home and we redirect directly to spawn_pending.
+        ##   Spawner.get_options_form is an async function, so we cannot call it in Jinja.
+        ##   We will start Spawner Objects via query_options/form_options, so no need for user_options
+        ##   in the SpawnerClass.
+        ##
+
+        ## Currently we only support JupyterLab, we have to update this in the future
+        ## if we want to support multiple services.
+        authentication["auth_state"]["options_form"] = await get_options_form(
+            auth_log=self.log,
+            service="JupyterLab",
+            vo_active=vo_active,
+            user_hpc_accounts=hpc_list,
+            custom_config=self.custom_config,
+        )
+
+        ## We have a few custom config features on the frontend. For this, we have to store
+        ## (parts of) the custom_config in the user's auth state
+        authentication = await self.update_auth_state_custom_config(
+            authentication, force=True
+        )
 
         return authentication

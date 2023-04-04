@@ -131,12 +131,9 @@ def get_system_infos(
     return systems, accounts, projects, partitions, reservations
 
 
-async def get_options_form(spawner, service, service_info):
-    auth_state = await spawner.user.get_auth_state()
-    user_hpc_accounts = auth_state.get("oauth_user", {}).get("hpc_infos_attribute", [])
-    vo_active = auth_state.get("vo_active", None)
-
-    custom_config = spawner.user.authenticator.custom_config
+async def get_options_form(
+    auth_log, service, vo_active, user_hpc_accounts, custom_config
+):
     vo_config = custom_config.get("vos")
     resources = custom_config.get("resources")
 
@@ -144,7 +141,7 @@ async def get_options_form(spawner, service, service_info):
     reservations_dict = get_reservations()
 
     systems, accounts, projects, partitions, reservations = get_system_infos(
-        spawner.log,
+        auth_log,
         custom_config,
         user_hpc_accounts,
         reservations_dict,
@@ -166,6 +163,7 @@ async def get_options_form(spawner, service, service_info):
     required_partitions = {}
     options = {}
 
+    service_info = custom_config.get("services", {}).get(service, {}).get("options", {})
     for option, infos in service_info.items():
         replace_allowed_lists = (
             vo_config.get(vo_active, {})

@@ -19,7 +19,12 @@ class SpawnNotificationAPIHandler(SpawnProgressAPIHandler):
         # start sending keepalive to avoid proxies closing the connection
         asyncio.ensure_future(self.keepalive())
 
-        event = user.spawn_start_event  # asyncio.Event()
+        if user.id not in user.authenticator.user_spawner_events.keys():
+            user.authenticator.user_spawner_events[user.id] = {
+                "start": asyncio.Event(),
+                "stop": asyncio.Event(),
+            }
+        event = user.authenticator.user_spawner_events[user.id]["start"]
         await event.wait()
         spawners = user.spawners.values()
         # Set active spawners as event data
@@ -44,7 +49,12 @@ class SpawnStopNotificationAPIHandler(SpawnProgressAPIHandler):
         # start sending keepalive to avoid proxies closing the connection
         asyncio.ensure_future(self.keepalive())
 
-        event = user.spawn_stop_event  # asyncio.Event()
+        if user.id not in user.authenticator.user_spawner_events.keys():
+            user.authenticator.user_spawner_events[user.id] = {
+                "start": asyncio.Event(),
+                "stop": asyncio.Event(),
+            }
+        event = user.authenticator.user_spawner_events[user.id]["stop"]
         await event.wait()
         spawners = user.spawners.values()
         # Send last event of stopping spawners only

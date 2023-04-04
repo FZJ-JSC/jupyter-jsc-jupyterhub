@@ -1,0 +1,55 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2023-04-03 13:29:48.624053693 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2023-04-03 13:31:29.664035144 +0200
+@@ -693,20 +693,12 @@
+         # - spawner not running at all
+         # - spawner failed
+         # - spawner pending start (what we expect)
+-        url = url_path_join(user.url, url_escape_path(server_name), '/')
+-        ready_event = {
+-            'progress': 100,
+-            'ready': True,
+-            'message': f"Server ready at {url}",
+-            'html_message': 'Server ready at <a href="{0}">{0}</a>'.format(url),
+-            'url': url,
+-        }
+         failed_event = {'progress': 100, 'failed': True, 'message': "Spawn failed"}
+ 
+         if spawner.ready:
+             # spawner already ready. Trigger progress-completion immediately
+             self.log.info("Server %s is already started", spawner._log_name)
+-            await self.send_event(ready_event)
++            await self.send_event(spawner.ready_event)
+             return
+ 
+         spawn_future = spawner._spawn_future
+@@ -749,7 +741,7 @@
+         if spawner.ready:
+             # spawner is ready, signal completion and redirect
+             self.log.info("Server %s is ready", spawner._log_name)
+-            await self.send_event(ready_event)
++            await self.send_event(spawner.ready_event)
+         else:
+             # what happened? Maybe spawn failed?
+             f = spawn_future
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/spawner.py ../jupyterhub-patched/jupyterhub/spawner.py
+--- ../jupyterhub/jupyterhub/spawner.py	2023-04-03 13:29:48.634053690 +0200
++++ ../jupyterhub-patched/jupyterhub/spawner.py	2023-04-03 13:31:29.744035126 +0200
+@@ -1240,6 +1240,17 @@
+     def _progress_url(self):
+         return self.user.progress_url(self.name)
+ 
++    @property
++    def ready_event(self):        
++        url = url_path_join(self.user.url, url_escape_path(self.name), '/')
++        return {
++            'progress': 100,
++            'ready': True,
++            'message': f"Server ready at {url}",
++            'html_message': 'Server ready at <a href="{0}">{0}</a>'.format(url),
++            'url': url,
++        }
++
+     async def _generate_progress(self):
+         """Private wrapper of progress generator
+ 

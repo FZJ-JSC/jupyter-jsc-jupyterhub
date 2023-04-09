@@ -1,53 +1,538 @@
 import asyncio
 import copy
 import json
-import logging
-import os
 import random
 import re
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
+from urllib.parse import urlparse
+from urllib.parse import urlunparse
 
 from async_generator import aclosing
-from custom_utils.backend_services import BackendException
-from custom_utils.backend_services import drf_request
-from custom_utils.backend_services import drf_request_properties
-from custom_utils.options_form import check_formdata_keys
-from custom_utils.options_form import get_options_from_form
 from jupyterhub.spawner import Spawner
 from jupyterhub.utils import maybe_future
 from jupyterhub.utils import url_path_join
+from tornado.httpclient import AsyncHTTPClient
 from tornado.httpclient import HTTPClientError
 from tornado.httpclient import HTTPRequest
 from tornado.ioloop import PeriodicCallback
+from traitlets import Any
 from traitlets import Bool
+from traitlets import Callable
+from traitlets import default
+from traitlets import Dict
 from traitlets import Integer
-
-# from custom_utils.options_form import get_options_form
+from traitlets import Unicode
+from traitlets import Union
 
 
 class BackendSpawner(Spawner):
-    _cancel_pending = False
-    _cancel_event_yielded = False
-    _yielded_events = []
-    svc_name = ""
-
-    latest_events = []
-    events = {}
-    stop_event = {}
+    # We will give each Start attempt its own 8 chars long id.
+    # This allows the a backend API to receive the start call
+    # for a new JupyterLab with the same name, while the previous
+    # one is not fully stopped yet.
     start_id = ""
-    skip_stop = False
-    clear_events = True
-    yield_wait_seconds = 1
+
+    # This is used to prevent multiple requests during the stop procedure.
+    already_stopped = False
 
     poll_interval_randomizer = Integer(
         20,
         help="""
+        When JupyterHub restarts, it will send a poll to all running JupyterLabs.
+        This will lead to a massive spam to the backend API every `Spawner.poll_interval`
+        seconds. This option can help to dispense the poll requests after a hub restart.
+        
         random.randint(0, 1e3 * self.poll_interval_randomizer) will be added to
-	self.poll_interval. Each Spawner object will have it's own interval.
+	    self.poll_interval. Each Spawner object will have it's own interval.        
         """,
     ).tag(config=True)
+
+    request_url_start = Union(
+        [Unicode(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    async def get_request_url_start(self):
+        if callable(self.request_url_start):
+            request_url_start = await maybe_future(self.request_url_start(self))
+        else:
+            request_url_start = self.request_url_start
+        return request_url_start
+
+    request_body_start = Union(
+        [Dict(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    async def get_request_body_start(self):
+        if callable(self.request_body_start):
+            request_body_start = await maybe_future(self.request_body_start(self))
+        else:
+            request_body_start = self.request_body_start
+        return request_body_start
+
+    request_headers_start = Union(
+        [Dict(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    async def get_request_headers_start(self):
+        if callable(self.request_headers_start):
+            request_headers_start = await maybe_future(self.request_headers_start(self))
+        else:
+            request_headers_start = self.request_headers_start
+        return request_headers_start
+
+    request_kwargs = Dict(
+        default={},
+        help="""
+        Allows you to add additional keywords to HTTPRequest Object.
+        Examples:
+          ca_certs,
+          validate_cert,
+          request_timeout
+        """,
+    ).tag(config=True)
+
+    port = Union(
+        [Integer(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    async def get_port(self):
+        if callable(self.port):
+            port = await maybe_future(self.port(self))
+        else:
+            port = self.port
+        return port
+
+    service_address = Union(
+        [Unicode(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    def get_service_address(self):
+        if callable(self.service_address):
+            service_address = self.service_address(self)
+        else:
+            service_address = self.service_address
+        return service_address
+
+    def run_pre_spawn_hook(self):
+        """Some commands are required."""
+        if self.already_stopped:
+            raise Exception("Server is in the process of stopping, please wait.")
+        self.start_id = uuid.uuid4().hex[:8]
+        if self.internal_ssl:
+            service_address = self.get_service_address()
+            self.ssl_alt_names += [f"DNS:{service_address}"]
+
+        """Run the pre_spawn_hook if defined"""
+        if self.pre_spawn_hook:
+            return self.pre_spawn_hook(self)
+
+    failed_spawn_request_hook = Callable(
+        help="""
+        If a start of a JupyterLab fails, you can run additional commands here.
+        This allows you to handle a failed start attempt properly, according to
+        your specific backend API.
+        
+        Example:
+        ```
+        def custom_failed_spawn_request_hook(Spawner, exception_thrown):
+            ...
+            return
+        ```
+        """
+    ).tag(config=True)
+
+    @default("failed_spawn_request_hook")
+    def _failed_spawn_request_hook(self):
+        return self._default_failed_spawn_request_hook
+
+    def _default_failed_spawn_request_hook(self, exception):
+        return
+
+    def run_failed_spawn_request_hook(self, exception):
+        return self.failed_spawn_request_hook(exception)
+
+    post_spawn_request_hook = Callable(
+        help="""
+        If a start of a JupyterLab was successful, you can run additional commands here.
+        This allows you to handle a successful start attempt properly, according to
+        your specific backend API.
+        
+        Example:
+        ```
+        def post_spawn_request_hook(Spawner, resp_json):
+            ...
+            return
+        ```
+        """
+    ).tag(config=True)
+
+    @default("post_spawn_request_hook")
+    def _post_spawn_request_hook(self):
+        return self._default_post_spawn_request_hook
+
+    def _default_post_spawn_request_hook(self, resp_json):
+        self.log.info(
+            f"Start communication with backend answered with: {resp_json}.",
+            extra={
+                "uuidcode": self.name,
+                "log_name": self._log_name,
+                "user": self.user.name,
+                "action": "start",
+            },
+        )
+        return
+
+    def run_post_spawn_request_hook(self, resp_json):
+        return self.post_spawn_request_hook(self, resp_json)
+
+    request_url_poll = Union(
+        [Unicode(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    async def get_request_url_poll(self):
+        if callable(self.request_url_poll):
+            request_url_poll = await maybe_future(self.request_url_poll(self))
+        else:
+            request_url_poll = self.request_url_poll
+        return request_url_poll
+
+    request_headers_poll = Union(
+        [Dict(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    async def get_request_headers_poll(self):
+        if callable(self.request_headers_poll):
+            request_headers_poll = await maybe_future(self.request_headers_poll(self))
+        else:
+            request_headers_poll = self.request_headers_poll
+        return request_headers_poll
+
+    request_404_poll_keep_running = Bool(
+        False,
+        help="""
+        """,
+    ).tag(config=True)
+
+    request_failed_poll_keep_running = Bool(
+        False,
+        help="""
+        """,
+    ).tag(config=True)
+
+    request_url_stop = Union(
+        [Unicode(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    async def get_request_url_stop(self):
+        if callable(self.request_url_stop):
+            request_url_stop = await maybe_future(self.request_url_stop(self))
+        else:
+            request_url_stop = self.request_url_stop
+        return request_url_stop
+
+    request_headers_stop = Union(
+        [Dict(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    async def get_request_headers_stop(self):
+        if callable(self.request_headers_stop):
+            request_headers_stop = await maybe_future(self.request_headers_stop(self))
+        else:
+            request_headers_stop = self.request_headers_stop
+        return request_headers_stop
+
+    http_client = Any()
+
+    @default("http_client")
+    def _default_http_client(self):
+        return AsyncHTTPClient(force_instance=True, defaults=dict(validate_cert=False))
+
+    def get_state(self):
+        """get the current state"""
+        state = super().get_state()
+        if self.start_id:
+            state["start_id"] = self.start_id
+        return state
+
+    def load_state(self, state):
+        """load state from the database"""
+        super().load_state(state)
+        if "start_id" in state:
+            self.start_id = state["start_id"]
+
+    def clear_state(self):
+        """clear any state (called after shutdown)"""
+        super().clear_state()
+        self.start_id = ""
+        self.already_stopped = False
+
+    def start_polling(self):
+        """Start polling periodically for single-user server's running state.
+
+        Callbacks registered via `add_poll_callback` will fire if/when the server stops.
+        Explicit termination via the stop method will not trigger the callbacks.
+
+        We've added a randomized timer self.poll_interval_randomizer.
+        """
+
+        if self.poll_interval <= 0:
+            return
+        else:
+            poll_interval = 1e3 * self.poll_interval + random.randint(
+                0, 1e3 * self.poll_interval_randomizer
+            )
+            self.log.debug("Polling service status every %ims", poll_interval)
+
+        self.stop_polling()
+
+        self._poll_callback = PeriodicCallback(self.poll_and_notify, poll_interval)
+        self._poll_callback.start()
+
+    async def fetch(self, req, action):
+        try:
+            resp = await self.http_client.fetch(req)
+        except HTTPClientError as e:
+            if e.response:
+                # Log failed response message for debugging purposes
+                message = e.response.body.decode("utf8", "replace")
+                try:
+                    # guess json, reformat for readability
+                    json_message = json.loads(message)
+                except ValueError:
+                    # not json
+                    pass
+                else:
+                    # reformat json log message for readability
+                    message = json.dumps(json_message, sort_keys=True, indent=1)
+            else:
+                # didn't get a response, e.g. connection error
+                message = str(e)
+            url = urlunparse(urlparse(req.url)._replace(query=""))
+            self.log.error(
+                f"Communication with backend failed: {e.code} {req.method} {url}: {message}.",
+                extra={
+                    "uuidcode": self.name,
+                    "log_name": self._log_name,
+                    "user": self.user.name,
+                    "action": action,
+                },
+            )
+            raise e
+        else:
+            if resp.body:
+                return json.loads(resp.body.decode("utf8", "replace"))
+            else:
+                # empty body is None
+                return None
+
+    async def send_request(self, req, action, raise_exception=True):
+        self.log.debug(
+            f"Communicate {action} with backend service ( {req.url} )",
+            extra={
+                "uuidcode": self.name,
+                "log_name": self._log_name,
+                "user": self.user.name,
+                "action": action,
+            },
+        )
+        tic = time.monotonic()
+        try:
+            resp = await self.fetch(req, action)
+        except Exception as tic_e:
+            # self.log.exception(f"Communication {action} with backend service ( {req.url} ) failed.",
+            #                    extra={
+            #                        "uuidcode": self.name,
+            #                        "log_name": self._log_name,
+            #                        "user": self.user.name
+            #                    })
+            if raise_exception:
+                raise tic_e
+            else:
+                return {}
+        else:
+            return resp
+        finally:
+            toc = str(time.monotonic() - tic)
+            self.log.info(
+                f"Communicated {action} with backend service ( {req.url} ) (request duration: {toc})",
+                extra={
+                    "uuidcode": self.name,
+                    "log_name": self._log_name,
+                    "user": self.user.name,
+                    "duration": toc,
+                },
+            )
+
+    async def get_certs(self):
+        ret = {}
+        for key, path in self.cert_paths.items():
+            with open(path, "r") as f:
+                ret[key] = f.read()
+        return ret
+
+    async def start(self):
+        self.log.info(f"Start {self.name}-{self.start_id}")
+        request_body = await self.get_request_body_start()
+        request_header = await self.get_request_headers_start()
+        url = await self.get_request_url_start()
+
+        req = HTTPRequest(
+            url=url,
+            method="POST",
+            headers=request_header,
+            body=json.dumps(request_body),
+            **self.request_kwargs,
+        )
+
+        try:
+            resp_json = await self.send_request(req, action="start")
+        except Exception as e:
+            try:
+                await self.stop()
+            except:
+                self.log.exception(
+                    "Could not stop service which failed to start.",
+                    extra={
+                        "uuidcode": self.name,
+                        "log_name": self._log_name,
+                        "user": self.user.name,
+                    },
+                )
+            # We already stopped everything we can stop at this stage.
+            # With the raised exception JupyterHub will try to cancel again.
+            # We can skip these stop attempts. Failed Spawners will be
+            # available again faster.
+            self.already_stopped = True
+
+            # If JupyterHub could not start the service, additional
+            # actions may be required.
+            await maybe_future(self.run_failed_spawn_request_hook(e))
+
+            raise e
+
+        service_address = self.get_service_address()
+        port = await self.get_port()
+        self.log.debug(
+            f"Expect JupyterLab at {service_address}:{port}",
+            extra={
+                "uuidcode": self.name,
+                "log_name": self._log_name,
+                "user": self.user.name,
+            },
+        )
+
+        await maybe_future(self.run_post_spawn_request_hook(resp_json))
+        return (service_address, port)
+
+    async def poll(self):
+        if self.already_stopped:
+            # avoid loop with stop
+            return 0
+
+        url = await self.get_request_url_poll()
+        headers = await self.get_request_headers_poll()
+        req = HTTPRequest(
+            url=url,
+            method="GET",
+            headers=headers,
+            **self.request_kwargs,
+        )
+
+        try:
+            resp_json = await self.send_request(req, action="poll")
+        except Exception as e:
+            ret = 0
+            if type(e).__name__ == "HTTPClientError" and getattr(e, "code", 500) == 404:
+                if self.request_404_poll_keep_running:
+                    ret = None
+            if self.request_failed_poll_keep_running:
+                ret = None
+            return ret
+        if not resp_json.get("running", True):
+            return 0
+        return None
+
+    async def stop(self, now=False, cancel=False):
+        if self.already_stopped:
+            # We've already sent a request to the backend.
+            # There's no need to do it again.
+            return
+
+        # Prevent multiple requests to the backend
+        self.already_stopped = True
+
+        url = await self.get_request_url_stop()
+        headers = await self.get_request_headers_stop()
+        req = HTTPRequest(
+            url=url,
+            method="DELETE",
+            headers=headers,
+            **self.request_kwargs,
+        )
+
+        await self.send_request(req, action="stop", raise_exception=False)
+
+        if self.cert_paths:
+            Path(self.cert_paths["keyfile"]).unlink(missing_ok=True)
+            Path(self.cert_paths["certfile"]).unlink(missing_ok=True)
+            try:
+                Path(self.cert_paths["certfile"]).parent.rmdir()
+            except:
+                pass
+
+        # We've implemented a cancel feature, which allows you to call
+        # Spawner.stop(cancel=True) and stop the spawn process.
+        if cancel:
+            try:
+                # If this function was called with cancel=True, it was called directly
+                # and not via user.stop. So we want to cleanup in the user object
+                # as well. It will throw an exception, but we expect the asyncio task
+                # to be cancelled, because we've cancelled it ourself.
+                await self.user.stop(self.name)
+            except asyncio.CancelledError:
+                pass
+
+            if type(self._spawn_future) is asyncio.Task:
+                if self._spawn_future._state in ["PENDING"]:
+                    try:
+                        self._spawn_future.cancel()
+                        await maybe_future(self._spawn_future)
+                    except asyncio.CancelledError:
+                        pass
+
+
+class EventBackendSpawner(BackendSpawner):
+    _yielded_events = []
+    _cancel_event_yielded = False
+    latest_events = []
+    events = {}
+    stop_event = {}
+    clear_events = True
+    yield_wait_seconds = 1
+
+    external_stop_event = {}
 
     activate_spawner_events = Bool(
         True,
@@ -59,10 +544,6 @@ class BackendSpawner(Spawner):
     def get_state(self):
         """get the current state"""
         state = super().get_state()
-        if self.svc_name:
-            state["svc_name"] = self.svc_name
-        if self.start_id:
-            state["start_id"] = self.start_id
         if self.events:
             if type(self.events) != dict:
                 self.events = {}
@@ -88,563 +569,15 @@ class BackendSpawner(Spawner):
         super().load_state(state)
         if "events" in state:
             self.events = state["events"]
-        if "svc_name" in state:
-            self.svc_name = state["svc_name"]
-        if "start_id" in state:
-            self.start_id = state["start_id"]
-
-        if self.activate_spawner_events:
-            self.create_spawner_events_hook()
 
     def clear_state(self):
         """clear any state (called after shutdown)"""
-        self.svc_name = ""
-        self.start_id = ""
-        self.skip_stop = False
+        super().clear_state()
+        self.external_stop_event = {}
+        self._cancel_event_yielded = False
         if self.clear_events:
             self.events = {}
             self.clear_events = False
-        super().clear_state()
-
-    def start_polling(self):
-        """Start polling periodically for single-user server's running state.
-
-        Callbacks registered via `add_poll_callback` will fire if/when the server stops.
-        Explicit termination via the stop method will not trigger the callbacks.
-
-        We've added a randomized timer self.poll_interval_randomizer.
-        If you restart JupyterHub, all polls start at the same time. With the randomizing
-        factor, only the first poll for each server happens at the same time.
-        """
-
-        custom_config = self.user.authenticator.custom_config
-        drf_service = (
-            custom_config.get("systems", {})
-            .get(self.user_options.get("system", ""), {})
-            .get("drf-service", "")
-        )
-        if (
-            not custom_config.get("drf-services", {})
-            .get(drf_service, {})
-            .get("poll", True)
-        ):
-            # do not poll
-            return
-        self.poll_interval = (
-            custom_config.get("drf-services", {})
-            .get(drf_service, {})
-            .get("poll_interval", self.poll_interval)
-        )
-        self.poll_interval_randomizer = (
-            custom_config.get("drf-services", {})
-            .get(drf_service, {})
-            .get("poll_interval_randomizer", self.poll_interval_randomizer)
-        )
-        if self.poll_interval <= 0:
-            self.log.debug("Not polling subprocess")
-            return
-        else:
-            poll_interval = 1e3 * self.poll_interval + random.randint(
-                0, 1e3 * self.poll_interval_randomizer
-            )
-            self.log.debug("Polling subprocess every %ims", poll_interval)
-
-        self.stop_polling()
-
-        self._poll_callback = PeriodicCallback(self.poll_and_notify, poll_interval)
-        self._poll_callback.start()
-
-    def status_update_url(self, server_name=""):
-        """API path for status update endpoint for a server with a given name"""
-        url_parts = ["users", "progress", "update", self.user.escaped_name]
-        if server_name:
-            url_parts.append(server_name)
-        return url_path_join(*url_parts)
-
-    @property
-    def _status_update_url(self):
-        return self.status_update_url(self.name)
-
-    def status_update_unicore_url(self, server_name=""):
-        """API path for status update endpoint for a server with a given name"""
-        hostname = os.environ.get("JUPYTERHUB_HOSTNAME", "default")
-        url_parts = ["users", "progress", "updateunicore", self.user.escaped_name]
-        if server_name:
-            url_parts.append(server_name)
-        return f"https://{hostname}/hub/api/{url_path_join(*url_parts)}"
-
-    @property
-    def _status_update_unicore_url(self):
-        return self.status_update_unicore_url(self.name)
-
-    def get_env(self):
-        env = super().get_env()
-        env["JUPYTERHUB_STATUS_URL"] = self._status_update_url
-        env["JUPYTERHUB_STATUS_UNICORE_URL"] = self._status_update_unicore_url
-        env["JUPYTERHUB_USER_ID"] = self.user.orm_user.id
-        env["JUPYTERHUB_STAGE"] = os.environ.get("JUPYTERHUB_STAGE", "")
-        return env
-
-    def get_svc_name(self):
-        custom_config = self.user.authenticator.custom_config
-        drf_service = (
-            custom_config.get("systems", {})
-            .get(self.user_options["system"], {})
-            .get("drf-service", None)
-        )
-        # max length for svc names: 63 (without suffix)
-        # drf_service + "-" + self.name + "-" + self.start_id
-        #      21     +  1  +    32     +  1  + 8 = 63
-        drf_service_short = drf_service[:21]
-
-        svc_name = f"{drf_service_short}-{self.name}-{self.start_id}"
-        return f"{svc_name}"
-
-    def get_svc_name_suffix(self):
-        k8s_tunnel_deployment_namespace = os.environ.get("TUNNEL_DEPLOYMENT_NAMESPACE")
-        return f".{k8s_tunnel_deployment_namespace}.svc"
-
-    def _get_req_prop(self, auth_state):
-        custom_config = self.user.authenticator.custom_config
-        drf_service = (
-            custom_config.get("systems", {})
-            .get(self.user_options["system"], {})
-            .get("drf-service", None)
-        )
-        send_access_token = (
-            custom_config.get("drf-services", {})
-            .get(drf_service, {})
-            .get("send_access_token", False)
-        )
-        access_token = auth_state["access_token"] if send_access_token else None
-        req_prop = drf_request_properties(
-            drf_service, custom_config, self.log, self.name, access_token
-        )
-        return req_prop
-
-    def _get_event_time(self, event):
-        # Regex for date time
-        pattern = re.compile(
-            r"([0-9]+(_[0-9]+)+).*[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,3})?"
-        )
-        message = event["html_message"]
-        match = re.search(pattern, message)
-        return match.group()
-
-    async def start(self):
-        if self._cancel_pending:
-            raise Exception("Server is in the process of stopping, please wait.")
-        # Save latest events with start event time
-        if self.latest_events != []:
-            try:
-                start_event = self.latest_events[0]
-                start_event_time = self._get_event_time(start_event)
-                self.events[start_event_time] = self.latest_events
-            except:
-                self.log.info(
-                    f"Could not retrieve latest_events. Reset events list for {self._log_name}"
-                )
-                self.latest_events = []
-                self.events = {}
-        # Reset latest events only
-        self.latest_events = []
-        if type(self.events) != dict:
-            self.events = {}
-        self.events["latest"] = self.latest_events
-        self.stop_event = {}
-
-        self._cancel_pending = False
-        self._cancel_event_yielded = False
-
-        if self.activate_spawner_events:
-            self.create_spawner_events_hook()
-            self.user.authenticator.user_spawner_events[self.user.id]["start"].set()
-
-        return await self._start()
-
-    async def create_certs(self):
-        from certipy import Certipy
-
-        self.start_id = uuid.uuid4().hex[:8]
-        self.ssl_alt_names += [f"DNS:{self.get_svc_name()}{self.get_svc_name_suffix()}"]
-
-        default_names = ["DNS:localhost", "IP:127.0.0.1"]
-        alt_names = []
-        alt_names.extend(self.ssl_alt_names)
-
-        if self.ssl_alt_names_include_local:
-            alt_names = default_names + alt_names
-
-        self.log.info("Creating certs for %s: %s", self._log_name, ";".join(alt_names))
-
-        certipy = Certipy(store_dir=self.internal_certs_location)
-        notebook_component = "notebooks-ca"
-        notebook_key_pair = certipy.create_signed_pair(
-            f"{self.name}_{self.start_id}",
-            notebook_component,
-            alt_names=alt_names,
-            overwrite=True,
-        )
-        paths = {
-            "keyfile": notebook_key_pair["files"]["key"],
-            "certfile": notebook_key_pair["files"]["cert"],
-            "cafile": self.internal_trust_bundles[notebook_component],
-        }
-        return paths
-
-    async def get_certs(self):
-        ret = {}
-        for key, path in self.cert_paths.items():
-            with open(path, "r") as f:
-                ret[key] = f.read()
-        return ret
-
-    def create_spawner_events_hook(self):
-        # We use asyncio.Event on `/hub/home` to send information to the frontend without polling.
-        # The event objects are stored in genericoauthenticator.
-        # This function will be used in two cases:
-        #    - start.
-        #    - load_state. (so that they're available after a hub restart)
-
-        if self.user.id not in self.user.authenticator.user_spawner_events.keys():
-            self.user.authenticator.user_spawner_events[self.user.id] = {
-                "start": asyncio.Event(),
-                "stop": asyncio.Event(),
-            }
-
-    async def _start(self):
-        config = self.user.authenticator.custom_config
-
-        def map_user_options():
-            ret = {}
-            for key, value in self.user_options.items():
-                ret[config.get("map_user_options").get(key, key)] = value
-            return ret
-
-        if not self.internal_ssl:
-            # Create certs was never called, so no start_id was defined yet
-            self.start_id = uuid.uuid4().hex[:8]
-
-        self.svc_name = self.get_svc_name()
-
-        now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-        user_options = map_user_options()
-        try:
-            check_formdata_keys(user_options, config)
-        except KeyError as e:
-            error = "Invalid input"
-            detailed_error = str(e)
-            jupyterhub_html_message = (
-                f"<details><summary>{now}: {error}</summary>{detailed_error}</details>"
-            )
-            failed_event = {
-                "progress": 100,
-                "failed": True,
-                "html_message": jupyterhub_html_message,
-            }
-            self.latest_events.append(failed_event)
-            raise BackendException(error, detailed_error, jupyterhub_html_message, 400)
-
-        self.log.info(
-            "Spawn submit ...",
-            extra={
-                "uuidcode": self.name,
-                "username": self.user.name,
-                "userid": self.user.id,
-                "start_id": self.start_id,
-                "svc_name": self.svc_name,
-                "action": "start",
-                "options": user_options,
-            },
-        )
-
-        self.skip_stop = False
-        user_messages = config.get("user_messages", {})
-        start_pre_default = f"Sending request to backend service to start your service on {user_options['system']}."
-        start_pre_msg = user_messages.get("start_pre", start_pre_default)
-        start_event = {
-            "failed": False,
-            "progress": 10,
-            "html_message": f"<details><summary>{now}: {start_pre_msg}</summary>\
-                &nbsp;&nbsp;Start ID: {self.start_id}<br>&nbsp;&nbsp;Options:<br><pre>{json.dumps(user_options, indent=2)}</pre></details>",
-        }
-        ready_default = (
-            f"Service {user_options['name']} started on {user_options['system']}."
-        )
-        ready_msg = user_messages.get("ready", ready_default)
-        self.ready_event[
-            "html_message"
-        ] = f'<details><summary><now>: {ready_msg}</summary>You will be redirected to <a href="<url>"><url></a></details>'
-        self.latest_events = [start_event]
-
-        self.port = 8080
-
-        auth_state = await self.user.get_auth_state()
-
-        add_env = {}
-        for options in config.get("additional_spawn_options", {}).items():
-            for key in options[1]:
-                add_env[f"JUPYTER_MODULE_{key.upper()}_ENABLED"] = int(
-                    key in user_options.get("additional_spawn_options", {})
-                )
-
-        env = self.get_env()
-        env.update(add_env)
-        popen_kwargs = {
-            "auth_state": auth_state,
-            "env": env,
-            "user_options": user_options,
-            "start_id": self.start_id,
-        }
-
-        if self.internal_ssl:
-            popen_kwargs["certs"] = await self.get_certs()
-
-        req_prop = self._get_req_prop(auth_state)
-        service_url = req_prop.get("urls", {}).get("services", "None")
-        req = HTTPRequest(
-            service_url,
-            method="POST",
-            headers=req_prop["headers"],
-            body=json.dumps(popen_kwargs),
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
-        )
-
-        if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
-            "true",
-            "1",
-        ]:
-            options = ";".join(["%s=%s" % (k, v) for k, v in self.user_options.items()])
-            metrics_logger = logging.getLogger("Metrics")
-            metrics_extras = {
-                "action": "start",
-                "userid": self.user.id,
-                "servername": self.name,
-                "options": self.user_options,
-            }
-            metrics_logger.info(
-                f"action={metrics_extras['action']};userid={metrics_extras['userid']};servername={metrics_extras['servername']};{options}"
-            )
-            self.log.info("start", extra=metrics_extras)
-
-        try:
-            resp_json = await drf_request(
-                req,
-                self.log,
-                self.user.authenticator.fetch,
-                "start",
-                self.user.name,
-                self._log_name,
-                parse_json=True,
-                raise_exception=True,
-            )
-        except BackendException as e:
-            self.log.warning(
-                "Spawn submit ... failed.",
-                extra={
-                    "uuidcode": self.name,
-                    "username": self.user.name,
-                    "userid": self.user.id,
-                    "start_id": self.start_id,
-                    "svc_name": self.svc_name,
-                    "action": "submit_fail",
-                    "user_msg": e.jupyterhub_html_message,
-                },
-            )
-            failed_event = {
-                "progress": 100,
-                "failed": True,
-                "html_message": e.jupyterhub_html_message,
-            }
-            try:
-                await self.stop()
-            except:
-                self.log.exception("Could not stop failed spawn")
-            # We already stopped everything we can stop at this stage.
-            # With the exception JupyterHub will try to cancel again.
-            # We can skip these stop attempts. Failed Spawners will be
-            # available again faster.
-            self.skip_stop = True
-            self.latest_events.append(failed_event)
-            raise e
-
-        svc_name_suffix = self.get_svc_name_suffix()
-        self.log.debug(
-            f"Expect JupyterLab at {self.svc_name}{svc_name_suffix}:{self.port}",
-            extra={"uuidcode": self.name},
-        )
-        now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-        if (
-            self.user.authenticator.custom_config.get("systems", {})
-            .get(user_options["system"], {})
-            .get("drf-service", "")
-            == "unicoremgr"
-        ):
-            unicore_post_default = "Waiting for UNICORE job to run... (click on log lines for more information)"
-            unicore_post_msg = user_messages.get(
-                "start_post_unicore", unicore_post_default
-            )
-            submit_message = f"<details><summary>{now}: {unicore_post_msg}</summary>You will receive further information about the service status from the UNICORE job.</details>"
-        else:
-            k8s_post_default = "Waiting for Kubernetes container to start... (click on log lines for more information)"
-            k8s_post_msg = user_messages.get("start_post_k8s", k8s_post_default)
-            submit_message = f"<details><summary>{now}: {k8s_post_msg}</summary>You will receive further information about the service status from the container.</details>"
-        submitted_event = {
-            "failed": False,
-            "progress": 30,
-            "html_message": submit_message,
-        }
-        self.latest_events.append(submitted_event)
-        self.log.info(
-            "Spawn submit ... done.",
-            extra={
-                "uuidcode": self.name,
-                "username": self.user.name,
-                "userid": self.user.id,
-                "start_id": self.start_id,
-                "svc_name": self.svc_name,
-                "action": "submitted",
-                "response": resp_json,
-            },
-        )
-        return (f"{self.svc_name}{svc_name_suffix}", self.port)
-
-    async def poll(self, force_cancel=False):
-        if self._cancel_pending:
-            # avoid loop with cancel
-            return 0
-
-        auth_state = await self.user.get_auth_state()
-
-        req_prop = self._get_req_prop(auth_state)
-        service_url = req_prop.get("urls", {}).get("services", "None")
-
-        req = HTTPRequest(
-            f"{service_url}{self.name}/",
-            method="GET",
-            headers=req_prop["headers"],
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
-        )
-
-        try:
-            resp_json = await drf_request(
-                req,
-                self.log,
-                self.user.authenticator.fetch,
-                "poll",
-                self.user.name,
-                self._log_name,
-                parse_json=True,
-                raise_exception=True,
-            )
-        except HTTPClientError as e:
-            if getattr(e, "code", 500) == 404:
-                resp_json = {"running": False}
-            else:
-                self.log.warning("Unexpected error", exc_info=True)
-                return None
-        except Exception:
-            self.log.warning("Unexpected error", exc_info=True)
-            return None
-        if not resp_json.get("running", True) or force_cancel:
-            # Force_cancel:
-            # When UNICORE sends a notification with a status update SUCCESSFUL,
-            # drf-unicoremgr may return job.running = True ; we want to cancel
-            # anyway.
-            if self._spawn_pending:
-                # During the spawn progress we've received that it's already stopped.
-                # We want to show the error message to the user
-                summary = resp_json.get("details", {}).get("error", "Start failed.")
-                details = resp_json.get("details", {}).get(
-                    "detailed_error", "No details available."
-                )
-                event = {
-                    "failed": True,
-                    "progress": 100,
-                    "html_message": f"<details><summary>{summary}</summary>{details}</details>",
-                }
-                await self.cancel(event)
-                return 0
-            else:
-                # It's not running anymore. Call stop to delete all resources
-                await self.stop()
-            return 0
-        return None
-
-    def stop(self):
-        if self.activate_spawner_events:
-            self.create_spawner_events_hook()
-            self.user.authenticator.user_spawner_events[self.user.id]["stop"].set()
-        return asyncio.ensure_future(self._stop())
-
-    async def _stop(self):
-        if self.skip_stop:
-            return
-
-        auth_state = await self.user.get_auth_state()
-
-        req_prop = self._get_req_prop(auth_state)
-        service_url = req_prop.get("urls", {}).get("services", "None")
-
-        req = HTTPRequest(
-            f"{service_url}{self.name}/",
-            method="DELETE",
-            headers=req_prop["headers"],
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
-        )
-
-        await drf_request(
-            req,
-            self.log,
-            self.user.authenticator.fetch,
-            "stop",
-            self.user.name,
-            self._log_name,
-            parse_json=True,
-            raise_exception=False,
-        )
-
-        custom_config = self.user.authenticator.custom_config
-        tunnel_req_prop = drf_request_properties(
-            "tunnel", custom_config, self.log, self.name
-        )
-
-        tunnel_service_url = tunnel_req_prop.get("urls", {}).get("tunnel", "None")
-        tunnel_req = HTTPRequest(
-            f"{tunnel_service_url}{self.name}/",
-            method="DELETE",
-            headers=tunnel_req_prop["headers"],
-            request_timeout=tunnel_req_prop["request_timeout"],
-            validate_cert=tunnel_req_prop["validate_cert"],
-            ca_certs=tunnel_req_prop["ca_certs"],
-        )
-        await drf_request(
-            tunnel_req,
-            self.log,
-            self.user.authenticator.fetch,
-            "removetunnel",
-            self.user.name,
-            f"{self.user.name}::removetunnel",
-            parse_json=True,
-            raise_exception=False,
-        )
-
-        if self.cert_paths:
-            Path(self.cert_paths["keyfile"]).unlink(missing_ok=True)
-            Path(self.cert_paths["certfile"]).unlink(missing_ok=True)
-            try:
-                Path(self.cert_paths["certfile"]).parent.rmdir()
-            except:
-                pass
-
-        # Prevent multiple communication to the backend
-        self.skip_stop = True
 
     async def _generate_progress(self):
         """Private wrapper of progress generator
@@ -685,114 +618,166 @@ class BackendSpawner(Spawner):
                 break
             await asyncio.sleep(self.yield_wait_seconds)
 
-    async def _cancel_future(self, future):
-        if type(future) is asyncio.Task:
-            if future._state in ["PENDING"]:
-                try:
-                    future.cancel()
-                    await maybe_future(future)
-                except asyncio.CancelledError:
-                    pass
-                return True
-        return False
+    def status_update_url(self, server_name=""):
+        """API path for status update endpoint for a server with a given name"""
+        url_parts = ["users", "progress", "update", self.user.escaped_name]
+        if server_name:
+            url_parts.append(server_name)
+        return url_path_join(*url_parts)
 
-    async def cancel(self, event):
-        self.log.info("Cancel Start")
-        self._cancel_pending = True
-        self._stop_pending = True
+    @property
+    def _status_update_url(self):
+        return self.status_update_url(self.name)
 
-        cancel_msg = "Cancel in progress"
-        cancel_msg_detail = "We're stopping your service. This may take a few seconds."
-        now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-        config = self.user.authenticator.custom_config
-        cancel_msg = config.get("user_messages", {}).get("cancelling", cancel_msg)
-        cancel_msg_detail = config.get("user_messages", {}).get(
-            "cancelling_detail", cancel_msg_detail
+    def get_env(self):
+        env = super().get_env()
+        env["JUPYTERHUB_STATUS_URL"] = self._status_update_url
+        return env
+
+    def _get_event_time(self, event):
+        # Regex for date time
+        pattern = re.compile(
+            r"([0-9]+(_[0-9]+)+).*[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,3})?"
         )
-        cancelling_event = {
-            "failed": False,
-            "progress": 99,
-            "html_message": f"<details><summary>{now}: {cancel_msg}</summary><p>{cancel_msg_detail}</p></details>",
-        }
-        self.latest_events.append(cancelling_event)
+        message = event["html_message"]
+        match = re.search(pattern, message)
+        return match.group()
 
-        await self.stop()
+    @property
+    def ready_event(self):
+        event = super().ready_event
+        ready_msg = f"Service {self.name} started."
+        now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+        url = url_path_join(self.user.url, self.name, "/")
+        event[
+            "html_message"
+        ] = f'<details><summary>{now}: {ready_msg}</summary>You will be redirected to <a href="{url}">{url}</a></details>'
+        return event
 
-        # Save stop event for post stop hook
-        if event["html_message"].startswith("<details><summary>"):
-            event[
-                "html_message"
-            ] = f"<details><summary>$now: {event['html_message'][len('<details><summary>'):]}"
+    cancelling_event = Union(
+        [Dict(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    cancelling_event_default = {
+        "failed": False,
+        "ready": False,
+        "progress": 99,
+        "message": "",
+        "html_message": "JupyterLab is cancelling the start.",
+    }
+
+    def get_cancelling_event(self):
+        if callable(self.cancelling_event):
+            cancelling_event = self.cancelling_event(self)
+        elif self.cancelling_event:
+            cancelling_event = self.cancelling_event
         else:
-            event["html_message"] = f"$now: {event['html_message']}"
-        self.stop_event = event
-        try:
-            await self.user.stop(self.name)
-        except asyncio.CancelledError:
+            cancelling_event = self.cancelling_event_default
+        return cancelling_event
+
+    stop_event = Union(
+        [Dict(), Callable()],
+        help="""
+        """,
+    ).tag(config=True)
+
+    stop_event_default = {
+        "failed": True,
+        "ready": False,
+        "progress": 100,
+        "message": "",
+        "html_message": "JupyterLab was stopped.",
+    }
+
+    def get_stop_event(self):
+        if callable(self.stop_event):
+            stop_event = self.stop_event(self)
+        elif self.stop_event:
+            stop_event = self.stop_event
+        else:
+            stop_event = self.stop_event_default
+        return stop_event
+
+    def run_pre_spawn_hook(self):
+        """Some commands are required."""
+        if self.already_stopped:
+            raise Exception("Server is in the process of stopping, please wait.")
+
+        self.start_id = uuid.uuid4().hex[:8]
+        if self.internal_ssl:
+            service_address = self.get_service_address()
+            self.ssl_alt_names += [f"DNS:{service_address}"]
+
+        # Save latest events with start event time
+        if self.latest_events != []:
+            try:
+                start_event = self.latest_events[0]
+                start_event_time = self._get_event_time(start_event)
+                self.events[start_event_time] = self.latest_events
+            except:
+                self.log.info(
+                    f"Could not retrieve latest_events. Reset events list for {self._log_name}"
+                )
+                self.latest_events = []
+                self.events = {}
+        self.latest_events = []
+        if type(self.events) != dict:
+            self.events = {}
+        self.events["latest"] = self.latest_events
+        self.stop_event = {}
+
+        if self.activate_spawner_events:
             pass
 
-        # Let generate_progress catch this event.
-        # This will show the new event at the control panel site
-        for _ in range(0, 2):
-            if self._cancel_event_yielded:
-                break
-            else:
-                await asyncio.sleep(self.yield_wait_seconds)
-        if not self._cancel_event_yielded:
-            self.log.warning("Cancel event will not be displayed at control panel.")
-
-        await self._cancel_future(self._spawn_future)
-        self._cancel_pending = False
-        self._stop_pending = False
-        self.log.info("Cancel Done")
-
-    # async def options_form(self, spawner):
-    #     query_options = {}
-    #     # When receiving options_form via APIHandler no handler is defined
-    #     if spawner.handler:
-    #         for key, byte_list in spawner.handler.request.query_arguments.items():
-    #             query_options[key] = [bs.decode("utf8") for bs in byte_list]
-    #         service = query_options.get("service", "JupyterLab")
-    #         if type(service) == list:
-    #             service = service[0]
-    #     else:
-    #         try:
-    #             service = spawner.user_options.get("service", "JupyterLab").split("/")[
-    #                 0
-    #             ]
-    #         except:
-    #             self.log.exception("Could not receive options_form")
-    #             service = ""
-
-    #     services = self.user.authenticator.custom_config.get("services", {})
-    #     if service in services.keys():
-    #         return await get_options_form(
-    #             spawner, service, services[service].get("options", {})
-    #         )
-    #     raise NotImplementedError(f"Service type {service} from {service} unknown")
-
-    def post_stop_hook(self, spawner):
-        event = spawner.stop_event
-        if not event:
-            return
-        # Update event html message to show current time
         now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-        try:
-            event_string = event["html_message"]
-            if event_string.startswith("<details><summary>$now"):
-                event_string = f"<details><summary>{now}{event_string[len('<details><summary>$now'):]}"
-                event["html_message"] = event_string
-        except:
-            spawner.log.exception(
-                "Could not run post_stop_hook", extra={"uuidcode": spawner.name}
-            )
-        finally:
-            spawner.latest_events.append(event)
+        start_pre_msg = "Sending request to backend service to start your service."
+        start_event = {
+            "failed": False,
+            "progress": 10,
+            "html_message": f"<details><summary>{now}: {start_pre_msg}</summary>\
+                &nbsp;&nbsp;Start ID: {self.start_id}<br>&nbsp;&nbsp;Options:<br><pre>{json.dumps(self.user_options, indent=2)}</pre></details>",
+        }
+        self.latest_events = [start_event]
 
-    async def options_from_form(self, formdata):
-        custom_config = self.user.authenticator.custom_config
-        service = formdata.get("service", [""])[0]
-        service_type = service.split("/")[0]
-        if service_type in custom_config.get("services").keys():
-            return await get_options_from_form(formdata, custom_config)
-        raise NotImplementedError(f"Service type {service_type} from {service} unknown")
+        """Run the pre_spawn_hook if defined"""
+        if self.pre_spawn_hook:
+            return self.pre_spawn_hook(self)
+
+    def run_post_spawn_request_hook(self, resp_json):
+        now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+        submitted_event = {
+            "failed": False,
+            "ready": False,
+            "progress": 30,
+            "html_message": f"<details><summary>{now}: Backend communication successful.</summary>You will receive further information about the service status from the service itself.</details>",
+        }
+        self.latest_events.append(submitted_event)
+        return self.post_spawn_request_hook(self, resp_json)
+
+    async def stop(self, now=False, cancel=False, event=None):
+        if cancel:
+            cancelling_event = self.get_cancelling_event()
+            self.latest_events.append(cancelling_event)
+            self.log.info(f"Append {cancelling_event}")
+            if event:
+                self.external_stop_event = event
+
+        await super().stop(now, cancel)
+
+        if not event:
+            event = self.get_stop_event()
+        self.latest_events.append(event)
+
+        if self.activate_spawner_events:
+            pass
+            # await asyncio.sleep(2*self.yield_wait_seconds)
+
+    def run_post_stop_hook(self):
+        """Run the post_stop_hook if defined"""
+        if self.post_stop_hook is not None:
+            try:
+                return self.post_stop_hook(self)
+            except Exception:
+                self.log.exception("post_stop_hook failed with exception: %s", self)

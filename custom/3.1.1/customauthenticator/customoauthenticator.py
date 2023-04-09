@@ -192,7 +192,6 @@ class CustomLoginHandler(OAuthLoginHandler):
         return super().authorize_redirect(*args, **kwargs)
 
 
-custom_config_timeout = os.environ.get("CUSTOM_CONFIG_CACHE_TIME", 60)
 user_count_cache_timeout = os.environ.get("USER_COUNT_CACHE_TIME", 60)
 
 
@@ -219,7 +218,7 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
     _custom_config_cache = {}
     _custom_config_last_update = 0
 
-    @TimedCacheProperty(timeout=custom_config_timeout)
+    @property
     def custom_config(self):
         # Only update custom_config, if it has changed on disk
         last_change = os.path.getmtime(self.custom_config_file)
@@ -237,53 +236,59 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         else:
             return self._custom_config_cache
 
-    @TimedCacheProperty(timeout=user_count_cache_timeout)
-    def user_count(self):
-        self.log.debug("Update user_count via database ...")
-        try:
-            running_spawner = (
-                self.db.query(orm_spawner)
-                .filter(orm_spawner.server_id.isnot(None))
-                .all()
-            )
-            systems = [x.user_options.get("system") for x in running_spawner if x]
-            systems_partitions = [
-                f'{x.user_options.get("system")}:{x.user_options.get("partition", "N/A")}'
-                for x in running_spawner
-                if x
-            ]
-            unique_systems = set(systems)
-            ret = {
-                key: {
-                    "total": operator.countOf(systems, key),
-                    "partitions": {
-                        partition_key: operator.countOf(
-                            systems_partitions, f"{key}:{partition_key}"
-                        )
-                        for partition_key in [
-                            x.split(":")[1]
-                            for x in systems_partitions
-                            if x.startswith(key)
-                        ]
-                    },
+    _user_count_cache = {}
+    _user_count_last_update = 0
+
+    def get_user_count(self, db):
+        now = time.time()
+        if now - self._user_count_last_update > user_count_cache_timeout:
+            self.log.debug("Update user_count via database ...")
+            try:
+                running_spawner = (
+                    db.query(orm_spawner)
+                    .filter(orm_spawner.server_id.isnot(None))
+                    .all()
+                )
+                systems = [x.user_options.get("system") for x in running_spawner if x]
+                systems_partitions = [
+                    f'{x.user_options.get("system")}:{x.user_options.get("partition", "N/A")}'
+                    for x in running_spawner
+                    if x
+                ]
+                unique_systems = set(systems)
+                ret = {
+                    key: {
+                        "total": operator.countOf(systems, key),
+                        "partitions": {
+                            partition_key: operator.countOf(
+                                systems_partitions, f"{key}:{partition_key}"
+                            )
+                            for partition_key in [
+                                x.split(":")[1]
+                                for x in systems_partitions
+                                if x.startswith(key)
+                            ]
+                        },
+                    }
+                    for key in unique_systems
                 }
-                for key in unique_systems
-            }
-            active_minutes = self.custom_config.get("user_count", {}).get(
-                "active_minutes", 60
-            )
-            active_range = datetime.utcnow() - timedelta(minutes=active_minutes)
-            active_users = (
-                self.db.query(orm_user)
-                .filter(orm_user.last_activity > active_range)
-                .all()
-            )
-            ret["jupyterhub"] = len(active_users)
-            self.log.debug("Update user_count via database ... done", extra=ret)
-        except:
-            self.log.exception("Could not create user_count dict")
-            ret = {}
-        return ret
+                active_minutes = self.custom_config.get("user_count", {}).get(
+                    "active_minutes", 60
+                )
+                active_range = datetime.utcnow() - timedelta(minutes=active_minutes)
+                active_users = (
+                    db.query(orm_user)
+                    .filter(orm_user.last_activity > active_range)
+                    .all()
+                )
+                ret["jupyterhub"] = len(active_users)
+                self.log.debug("Update user_count via database ... done", extra=ret)
+            except:
+                self.log.exception("Could not create user_count dict")
+                ret = {}
+            self._user_count_cache = ret
+            self._user_count_last_update = now
+        return self._user_count_cache
 
     # We use asyncio.Events on /hub/home to receive updates for spawning JupyterLabs.
     # We store them in this custom authenticator, to avoid patching jupyterhub/user.py

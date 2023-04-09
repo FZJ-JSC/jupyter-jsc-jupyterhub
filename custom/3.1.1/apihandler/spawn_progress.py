@@ -128,7 +128,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
         uuidcode = server_name
 
         # Do not do anything if stop or cancel is already pending
-        if spawner.pending == "stop" or spawner._cancel_pending:
+        if spawner.pending == "stop" or spawner.already_stopped:
             self.set_status(204)
             return
 
@@ -173,7 +173,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                         "event": event,
                     },
                 )
-            asyncio.create_task(spawner.cancel(event))
+            asyncio.create_task(spawner.stop(cancel=True, event=event))
             self.set_header("Content-Type", "text/plain")
             self.set_status(204)
             return
@@ -204,7 +204,7 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
             if "setup_tunnel" in event.keys():
                 event["setup_tunnel"]["servername"] = spawner.name
                 event["setup_tunnel"]["svc_port"] = spawner.port
-                event["setup_tunnel"]["svc_name"] = spawner.svc_name
+                event["setup_tunnel"]["svc_name"] = spawner.get_service_address()
                 labels = {
                     "hub.jupyter.org/username": user.name,
                     "hub.jupyter.org/servername": spawner.name,
@@ -236,53 +236,53 @@ class SpawnProgressUpdateAPIHandler(APIHandler):
                     validate_cert=req_prop["validate_cert"],
                     ca_certs=req_prop["ca_certs"],
                 )
-                try:
-                    await drf_request(
-                        req,
-                        self.log,
-                        user.authenticator.fetch,
-                        "setuptunnel",
-                        user.name,
-                        f"{user.name}::setuptunnel",
-                        parse_json=True,
-                        raise_exception=True,
-                    )
-                except BackendException as e:
-                    now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-                    failed_event = {
-                        "progress": 100,
-                        "failed": True,
-                        "html_message": f"<details><summary>Could not setup tunnel</summary>{e.error_detail}</details>",
-                    }
-                    self.log.exception(
-                        f"Could not setup tunnel for {user_name}:{server_name}",
-                        extra={
-                            "uuidcode": uuidcode,
-                            "log_name": f"{user_name}:{server_name}",
-                            "user": user_name,
-                            "action": "tunnelfailed",
-                            "event": failed_event,
-                        },
-                    )
-                    asyncio.create_task(spawner.cancel(failed_event))
-                except Exception as e:
-                    now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-                    failed_event = {
-                        "progress": 100,
-                        "failed": True,
-                        "html_message": f"<details><summary>Could not setup tunnel</summary>{str(e)}</details>",
-                    }
-                    self.log.exception(
-                        f"Could not setup tunnel for {user_name}:{server_name}",
-                        extra={
-                            "uuidcode": uuidcode,
-                            "log_name": f"{user_name}:{server_name}",
-                            "user": user_name,
-                            "action": "tunnelfailed",
-                            "event": failed_event,
-                        },
-                    )
-                    asyncio.create_task(spawner.cancel(failed_event))
+                # try:
+                #     await drf_request(
+                #         req,
+                #         self.log,
+                #         user.authenticator.fetch,
+                #         "setuptunnel",
+                #         user.name,
+                #         f"{user.name}::setuptunnel",
+                #         parse_json=True,
+                #         raise_exception=True,
+                #     )
+                # except BackendException as e:
+                #     now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+                #     failed_event = {
+                #         "progress": 100,
+                #         "failed": True,
+                #         "html_message": f"<details><summary>Could not setup tunnel</summary>{e.error_detail}</details>",
+                #     }
+                #     self.log.exception(
+                #         f"Could not setup tunnel for {user_name}:{server_name}",
+                #         extra={
+                #             "uuidcode": uuidcode,
+                #             "log_name": f"{user_name}:{server_name}",
+                #             "user": user_name,
+                #             "action": "tunnelfailed",
+                #             "event": failed_event,
+                #         },
+                #     )
+                #     asyncio.create_task(spawner.cancel(failed_event))
+                # except Exception as e:
+                #     now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+                #     failed_event = {
+                #         "progress": 100,
+                #         "failed": True,
+                #         "html_message": f"<details><summary>Could not setup tunnel</summary>{str(e)}</details>",
+                #     }
+                #     self.log.exception(
+                #         f"Could not setup tunnel for {user_name}:{server_name}",
+                #         extra={
+                #             "uuidcode": uuidcode,
+                #             "log_name": f"{user_name}:{server_name}",
+                #             "user": user_name,
+                #             "action": "tunnelfailed",
+                #             "event": failed_event,
+                #         },
+                #     )
+                #     asyncio.create_task(spawner.cancel(failed_event))
 
             self.set_header("Content-Type", "text/plain")
             self.set_status(204)

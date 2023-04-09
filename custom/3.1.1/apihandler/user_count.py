@@ -4,9 +4,8 @@ from jupyterhub.apihandlers.base import APIHandler
 
 
 class UserCountAPIHandler(APIHandler):
-    """Return current user count"""
-
     async def get(self):
-        self.write(json.dumps(self.authenticator.user_count))
+        ret = self.authenticator.get_user_count(self.db)
+        self.write(json.dumps(self.authenticator.get_user_count(self.db)))
         self.set_status(200)
         return

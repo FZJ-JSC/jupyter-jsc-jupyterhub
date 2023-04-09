@@ -34,8 +34,8 @@ def create_extra_handlers():
         metric_logger.addHandler(metric_filehandler)
 
     # Remove default StreamHandler
-    console_handler = log.handlers[0]
-    log.removeHandler(console_handler)
+    if len(log.handlers) > 0:
+        log.removeHandler(log.handlers[0])
 
     # In trace will be sensitive information like tokens
     logging.addLevelName(5, "TRACE")

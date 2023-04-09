@@ -85,7 +85,7 @@ supported_handler_classes = {
 
 # supported formatters and their arguments
 supported_formatter_classes = {"json": JsonFormatter, "simple": ExtraFormatter}
-json_fmt = '{"asctime": "asctime", "levelno": "levelno", "levelname": "levelname", "logger": ABC, "file": "pathname", "line": "lineno", "function": "funcName", "Message": "message"}'
+json_fmt = '{"asctime": "asctime", "levelno": "levelno", "levelname": "levelname", "logger": "ABC", "file": "pathname", "line": "lineno", "function": "funcName", "Message": "message"}'
 simple_fmt = "%(asctime)s logger=ABC levelno=%(levelno)s levelname=%(levelname)s file=%(pathname)s line=%(lineno)d function=%(funcName)s : %(message)s"
 supported_formatter_kwargs = {
     "json": {"fmt": json_fmt, "mix_extra": True},

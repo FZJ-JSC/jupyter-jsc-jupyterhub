@@ -120,3 +120,7 @@ default_handlers.append((r"/api/users/progress/status/([^/]+)", SpawnEventsAPIHa
 default_handlers.append(
     (r"/api/users/progress/status/([^/]+)/([^/]+)", SpawnEventsAPIHandler)
 )
+default_handlers.append((r"/api/users/progress/update/([^/]+)", SpawnEventsAPIHandler))
+default_handlers.append(
+    (r"/api/users/progress/update/([^/]+)/([^/]+)", SpawnEventsAPIHandler)
+)

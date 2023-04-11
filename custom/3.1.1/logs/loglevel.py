@@ -8,8 +8,8 @@ from jupyterhub.handlers import default_handlers
 from jupyterhub.scopes import needs_scope
 from tornado.httpclient import HTTPRequest
 
-from .. import get_custom_config
 from ..apihandler.misc import RequestAPIHandler
+from ..misc import get_custom_config
 from .extra_handlers import default_configurations
 from .utils import create_logging_handler
 from .utils import remove_logging_handler

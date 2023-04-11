@@ -1,9 +1,18 @@
-import json
-import os
+import asyncio
 
-from jupyterhub.app import app_log
+from ..misc import get_custom_config
 
-from .. import get_custom_config
+_spawner_events = {}
+
+
+def get_spawner_events(user_id):
+    global _spawner_events
+    if user_id not in _spawner_events.keys():
+        _spawner_events[user_id] = {
+            "start": asyncio.Event(),
+            "stop": asyncio.Event(),
+        }
+    return _spawner_events[user_id]
 
 
 def check_formdata_keys(data):

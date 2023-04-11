@@ -9,7 +9,7 @@ from cryptography.x509 import load_pem_x509_certificate
 from jupyterhub.apihandlers import default_handlers
 from jupyterhub.apihandlers.base import APIHandler
 
-from .. import get_custom_config
+from ..misc import get_custom_config
 
 
 class SpawnEventsUNICOREAPIHandler(APIHandler):
@@ -22,7 +22,7 @@ class SpawnEventsUNICOREAPIHandler(APIHandler):
             self.set_status(404)
             return
 
-        custom_config = user.authenticator.custom_config
+        custom_config = get_custom_config()
         spawner = user.spawners[server_name]
         spawner_system = spawner.user_options.get("system", "")
         cert_url = (

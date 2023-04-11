@@ -20,8 +20,8 @@ from sqlalchemy import Unicode
 from tornado import web
 from tornado.httpclient import HTTPRequest
 
-from . import RequestAPIHandler
-from .. import get_custom_config
+from ..misc import get_custom_config
+from .misc import RequestAPIHandler
 
 
 class UserJobsORM(Base):

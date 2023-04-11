@@ -6,4 +6,3 @@ from . import tunnel_restart
 from . import twoFA
 from . import user_count
 from . import userjobs
-from .misc import RequestAPIHandler

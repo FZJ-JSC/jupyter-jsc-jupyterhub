@@ -7,7 +7,7 @@ from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.handlers import default_handlers
 from tornado import web
 
-from .. import get_custom_config
+from ..misc import get_custom_config
 
 
 class SelfAPIHandlerOAuth(APIHandler):

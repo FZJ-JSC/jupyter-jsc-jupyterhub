@@ -12,7 +12,7 @@ from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Integer
 
-from .. import get_custom_config
+from ..misc import get_custom_config
 
 
 class HPCAccountUpdatesORM(Base):

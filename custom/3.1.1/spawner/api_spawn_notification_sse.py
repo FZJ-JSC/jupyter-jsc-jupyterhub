@@ -5,7 +5,7 @@ from jupyterhub.apihandlers.users import SpawnProgressAPIHandler
 from jupyterhub.scopes import needs_scope
 from tornado import web
 
-from .eventspawner import get_spawner_events
+from .utils import get_spawner_events
 
 
 class SpawnNotificationAPIHandler(SpawnProgressAPIHandler):

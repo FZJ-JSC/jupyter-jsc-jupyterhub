@@ -32,6 +32,7 @@ class BackendSpawner(Spawner):
 
     # This is used to prevent multiple requests during the stop procedure.
     already_stopped = False
+    already_post_stop_hooked = False
 
     poll_interval_randomizer = Integer(
         20,
@@ -133,6 +134,18 @@ class BackendSpawner(Spawner):
         """Run the pre_spawn_hook if defined"""
         if self.pre_spawn_hook:
             return self.pre_spawn_hook(self)
+
+    def run_post_stop_hook(self):
+        if self.already_post_stop_hooked:
+            return
+        self.already_post_stop_hooked = True
+
+        """Run the post_stop_hook if defined"""
+        if self.post_stop_hook is not None:
+            try:
+                return self.post_stop_hook(self)
+            except Exception:
+                self.log.exception("post_stop_hook failed with exception: %s", self)
 
     failed_spawn_request_hook = Callable(
         help="""
@@ -281,6 +294,7 @@ class BackendSpawner(Spawner):
         super().clear_state()
         self.start_id = ""
         self.already_stopped = False
+        self.already_post_stop_hooked = False
 
     def start_polling(self):
         """Start polling periodically for single-user server's running state.
@@ -413,6 +427,7 @@ class BackendSpawner(Spawner):
             # We can skip these stop attempts. Failed Spawners will be
             # available again faster.
             self.already_stopped = True
+            self.already_post_stop_hooked = True
 
             # If JupyterHub could not start the service, additional
             # actions may be required.
@@ -493,19 +508,22 @@ class BackendSpawner(Spawner):
         # We've implemented a cancel feature, which allows you to call
         # Spawner.stop(cancel=True) and stop the spawn process.
         if cancel:
-            try:
-                # If this function was called with cancel=True, it was called directly
-                # and not via user.stop. So we want to cleanup in the user object
-                # as well. It will throw an exception, but we expect the asyncio task
-                # to be cancelled, because we've cancelled it ourself.
-                await self.user.stop(self.name)
-            except asyncio.CancelledError:
-                pass
+            await self.cancel()
 
-            if type(self._spawn_future) is asyncio.Task:
-                if self._spawn_future._state in ["PENDING"]:
-                    try:
-                        self._spawn_future.cancel()
-                        await maybe_future(self._spawn_future)
-                    except asyncio.CancelledError:
-                        pass
+    async def cancel(self):
+        try:
+            # If this function was called with cancel=True, it was called directly
+            # and not via user.stop. So we want to cleanup in the user object
+            # as well. It will throw an exception, but we expect the asyncio task
+            # to be cancelled, because we've cancelled it ourself.
+            await self.user.stop(self.name)
+        except asyncio.CancelledError:
+            pass
+
+        if type(self._spawn_future) is asyncio.Task:
+            if self._spawn_future._state in ["PENDING"]:
+                try:
+                    self._spawn_future.cancel()
+                    await maybe_future(self._spawn_future)
+                except asyncio.CancelledError:
+                    pass

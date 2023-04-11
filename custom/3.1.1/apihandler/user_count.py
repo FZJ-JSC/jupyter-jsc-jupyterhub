@@ -11,7 +11,7 @@ from jupyterhub.handlers import default_handlers
 from jupyterhub.orm import Spawner as orm_spawner
 from jupyterhub.orm import User as orm_user
 
-from .. import get_custom_config
+from ..misc import get_custom_config
 
 _user_count_cache = {}
 _user_count_last_update = 0

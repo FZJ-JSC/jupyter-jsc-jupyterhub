@@ -9,8 +9,8 @@ from jupyterhub.scopes import needs_scope
 from tornado import web
 from tornado.httpclient import HTTPRequest
 
-from .. import get_custom_config
 from ..backendspawner import user_cancel_message
+from ..misc import get_custom_config
 
 
 class SetupTunnelAPIHandler(APIHandler):

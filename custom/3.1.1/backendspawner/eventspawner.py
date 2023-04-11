@@ -7,24 +7,11 @@ from datetime import datetime
 
 from async_generator import aclosing
 from jupyterhub.utils import url_path_join
-from traitlets import Bool
 from traitlets import Callable
 from traitlets import Dict
 from traitlets import Union
 
 from .backendspawner import BackendSpawner
-
-user_spawner_events = {}
-
-
-def get_spawner_events(user_id):
-    global user_spawner_events
-    if user_id not in user_spawner_events.keys():
-        user_spawner_events[user_id] = {
-            "start": asyncio.Event(),
-            "stop": asyncio.Event(),
-        }
-    return user_spawner_events[user_id]
 
 
 class EventBackendSpawner(BackendSpawner):
@@ -35,13 +22,6 @@ class EventBackendSpawner(BackendSpawner):
     stop_event = {}
     clear_events = True
     yield_wait_seconds = 1
-
-    activate_spawner_events = Bool(
-        True,
-        help="""
-        Use asyncio.Events, to enable SSE to `/hub/home`
-        """,
-    )
 
     def get_state(self):
         """get the current state"""
@@ -229,9 +209,6 @@ class EventBackendSpawner(BackendSpawner):
         self.events["latest"] = self.latest_events
         self.stop_event = {}
 
-        if self.activate_spawner_events:
-            pass
-
         now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
         start_pre_msg = "Sending request to backend service to start your service."
         start_event = {
@@ -258,25 +235,20 @@ class EventBackendSpawner(BackendSpawner):
         return self.post_spawn_request_hook(self, resp_json)
 
     async def stop(self, now=False, cancel=False, event=None):
+        if self.already_stopped:
+            return
+
         if cancel:
             cancelling_event = self.get_cancelling_event()
             self.latest_events.append(cancelling_event)
-            self.log.info(f"Append {cancelling_event}")
 
-        await super().stop(now, cancel)
+        # always use cancel=False, and call the function later if neccessary.
+        # Otherwise the stop_event would be attached after run_post_stop_hook was called.
+        await super().stop(now, cancel=False)
 
         if not event:
             event = self.get_stop_event()
         self.latest_events.append(event)
 
-        if self.activate_spawner_events:
-            pass
-            # await asyncio.sleep(2*self.yield_wait_seconds)
-
-    def run_post_stop_hook(self):
-        """Run the post_stop_hook if defined"""
-        if self.post_stop_hook is not None:
-            try:
-                return self.post_stop_hook(self)
-            except Exception:
-                self.log.exception("post_stop_hook failed with exception: %s", self)
+        if cancel:
+            await self.cancel()

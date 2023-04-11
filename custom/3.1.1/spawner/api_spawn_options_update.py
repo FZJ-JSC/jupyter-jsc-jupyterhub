@@ -3,7 +3,7 @@ from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.scopes import needs_scope
 from tornado import web
 
-from .. import get_custom_config
+from ..misc import get_custom_config
 from .utils import check_formdata_keys
 
 

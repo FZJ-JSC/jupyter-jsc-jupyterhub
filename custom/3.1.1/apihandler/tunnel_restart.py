@@ -4,8 +4,8 @@ import uuid
 from jupyterhub.handlers import default_handlers
 from tornado.httpclient import HTTPRequest
 
-from . import RequestAPIHandler
-from .. import get_custom_config
+from ..misc import get_custom_config
+from .misc import RequestAPIHandler
 
 
 class ForwardTunnelRestartAPIHandler(RequestAPIHandler):

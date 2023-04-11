@@ -10,8 +10,8 @@ from tornado import web
 from tornado.httpclient import HTTPClientError
 from tornado.httpclient import HTTPRequest
 
-from . import RequestAPIHandler
-from .. import get_custom_config
+from ..misc import get_custom_config
+from .misc import RequestAPIHandler
 
 ## TODO: documentation
 ## inline and notebook for jupyter-jsc/sample documentation

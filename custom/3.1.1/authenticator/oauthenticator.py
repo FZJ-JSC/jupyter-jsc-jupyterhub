@@ -18,10 +18,10 @@ from traitlets import Dict
 from traitlets import Unicode
 from traitlets import Union
 
-from .. import _custom_config_file
-from .. import get_custom_config
-from .. import get_incidents
-from .. import get_reservations
+from ..misc import _custom_config_file
+from ..misc import get_custom_config
+from ..misc import get_incidents
+from ..misc import get_reservations
 
 
 def get_system_infos(
@@ -491,9 +491,7 @@ class CustomLogoutHandler(OAuthLogoutHandler):
                     tokens["refresh_token"] = refresh_token
                     auth_state["refresh_token"] = None
 
-            unity_revoke_config = user.authenticator.custom_config.get("unity", {}).get(
-                "revoke", {}
-            )
+            unity_revoke_config = get_custom_config().get("unity", {}).get("revoke", {})
             unity_revoke_url = unity_revoke_config.get("url", "")
             unity_revoke_certificate = unity_revoke_config.get(
                 "certificate_path", False
@@ -762,9 +760,11 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         # This has to be replaced with the official JHub RBAC feature
         username = authentication.get("name", "unknown")
         admin = authentication.get("admin", False)
+        # DEPRECATED and only used in frontend
+        authentication["auth_state"]["vo_active"] = "default"
+        authentication["auth_state"]["vo_available"] = ["default"]
 
         # Now we collect the hpc_list information and create a useful python dict from it
-
         ## First let's add some "default_partitions", that should be added to each user,
         ## even if it's listed in hpc_list
         custom_config = get_custom_config()

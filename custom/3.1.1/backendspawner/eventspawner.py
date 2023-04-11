@@ -18,6 +18,7 @@ user_spawner_events = {}
 
 
 def get_spawner_events(user_id):
+    global user_spawner_events
     if user_id not in user_spawner_events.keys():
         user_spawner_events[user_id] = {
             "start": asyncio.Event(),

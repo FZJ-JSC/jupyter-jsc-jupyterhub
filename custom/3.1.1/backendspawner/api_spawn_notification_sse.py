@@ -5,7 +5,7 @@ from jupyterhub.apihandlers.users import SpawnProgressAPIHandler
 from jupyterhub.scopes import needs_scope
 from tornado import web
 
-from .eventspawner import get_user_spawner_events
+from .eventspawner import get_spawner_events
 
 
 class SpawnNotificationAPIHandler(SpawnProgressAPIHandler):
@@ -22,7 +22,7 @@ class SpawnNotificationAPIHandler(SpawnProgressAPIHandler):
         # start sending keepalive to avoid proxies closing the connection
         asyncio.ensure_future(self.keepalive())
 
-        events = get_user_spawner_events(user.id)
+        events = get_spawner_events(user.id)
         await events["start"].wait()
         spawners = user.spawners.values()
         # Set active spawners as event data
@@ -47,7 +47,7 @@ class SpawnStopNotificationAPIHandler(SpawnProgressAPIHandler):
         # start sending keepalive to avoid proxies closing the connection
         asyncio.ensure_future(self.keepalive())
 
-        events = get_user_spawner_events[user.id]
+        events = get_spawner_events[user.id]
         await events["stop"].wait()
         spawners = user.spawners.values()
         # Send last event of stopping spawners only

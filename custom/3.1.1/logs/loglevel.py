@@ -6,15 +6,15 @@ from uuid import uuid4
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import default_handlers
 from jupyterhub.scopes import needs_scope
-from logs import create_logging_handler
-from logs import remove_logging_handler
-from logs.extra_handlers import default_configurations
-from logs.utils import supported_formatter_classes
-from logs.utils import supported_handler_classes
 from tornado.httpclient import HTTPRequest
 
-from . import RequestAPIHandler
 from .. import get_custom_config
+from ..apihandler.misc import RequestAPIHandler
+from .extra_handlers import default_configurations
+from .utils import create_logging_handler
+from .utils import remove_logging_handler
+from .utils import supported_formatter_classes
+from .utils import supported_handler_classes
 
 
 def get_config():

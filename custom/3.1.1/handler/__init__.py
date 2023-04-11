@@ -1,1 +1,1 @@
-import page_handlers
+from . import page_handlers

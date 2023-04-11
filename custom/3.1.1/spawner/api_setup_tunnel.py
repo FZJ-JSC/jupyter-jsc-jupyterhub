@@ -10,10 +10,7 @@ from tornado import web
 from tornado.httpclient import HTTPRequest
 
 from .. import get_custom_config
-
-user_cancel_message = (
-    "Start cancelled by user.</summary>You clicked the cancel button.</details>"
-)
+from ..backendspawner import user_cancel_message
 
 
 class SetupTunnelAPIHandler(APIHandler):

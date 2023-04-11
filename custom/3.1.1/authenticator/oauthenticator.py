@@ -1,17 +1,12 @@
 import copy
-import json
 import logging
 import os
 import re
 import time
 from datetime import datetime
-from datetime import timedelta
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 
-from custom_utils import get_vos
-from custom_utils import VoException
-from custom_utils.options_form import get_options_form
 from jupyterhub.utils import new_token
 from oauthenticator.generic import GenericOAuthenticator
 from oauthenticator.oauth2 import OAuthLoginHandler
@@ -20,7 +15,6 @@ from oauthenticator.traitlets import Callable
 from tornado.httpclient import HTTPClientError
 from tornado.httpclient import HTTPRequest
 from traitlets import Dict
-from traitlets import List
 from traitlets import Unicode
 from traitlets import Union
 

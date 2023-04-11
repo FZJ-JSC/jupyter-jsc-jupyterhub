@@ -8,31 +8,10 @@ from .utils import SafeToCopyFileHandler
 
 logger_name = os.environ.get("LOGGER_NAME", "JupyterHub")
 
-log = logging.getLogger(logger_name)
+log = logging.getLogger("JupyterHub")
 
 
 def create_extra_handlers():
-    if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
-        STRING_FORMAT_METRIC = "%(asctime)s;%(message)s"
-
-        metricFormatter = ExtraFormatter(STRING_FORMAT_METRIC, "%Y_%m_%d-%H_%M_%S")
-        metric_logger = logging.getLogger("Metrics")
-        metric_logger.setLevel(20)
-
-        from datetime import datetime
-
-        now = datetime.now()
-        current_time = now.strftime("%Y_%m_%d-%H_%M_%S")
-        metric_filename = "{}-{}".format(
-            os.environ.get("LOGGING_METRICS_LOGFILE", "/mnt/logs/metrics.log"),
-            current_time,
-        )
-
-        metric_filehandler = SafeToCopyFileHandler(metric_filename)
-        metric_filehandler.setFormatter(metricFormatter)
-        metric_filehandler.setLevel(20)
-        metric_logger.addHandler(metric_filehandler)
-
     # Remove default StreamHandler
     if len(log.handlers) > 0:
         log.removeHandler(log.handlers[0])

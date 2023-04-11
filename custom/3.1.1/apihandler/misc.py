@@ -13,11 +13,9 @@ from traitlets import default
 
 
 class RequestAPIHandler(APIHandler):
-    http_client = Any()
-
-    @default("http_client")
-    def _default_http_client(self):
-        return AsyncHTTPClient(force_instance=True, defaults=dict(validate_cert=False))
+    http_client = AsyncHTTPClient(
+        force_instance=True, defaults=dict(validate_cert=False)
+    )
 
     async def send_request(self, req, action, uuidcode=None, raise_exception=True):
         if not uuidcode:
@@ -73,9 +71,6 @@ class RequestAPIHandler(APIHandler):
             self.log.error(
                 f"Communication with backend failed: {e.code} {req.method} {url}: {message}.",
                 extra={
-                    "uuidcode": self.name,
-                    "log_name": self._log_name,
-                    "user": self.user.name,
                     "action": action,
                 },
             )
@@ -87,10 +82,13 @@ class RequestAPIHandler(APIHandler):
                 # empty body is None
                 return None
 
-    def get_req_prop(self, custom_config, system, uuidcode, auth_state=None):
+    def get_req_prop_system(self, custom_config, system, uuidcode, auth_state=None):
         drf_service = (
             custom_config.get("systems", {}).get(system, {}).get("drf-service", None)
         )
+        return self.get_req_prop(custom_config, drf_service, uuidcode, auth_state)
+
+    def get_req_prop(self, custom_config, drf_service, uuidcode, auth_state=None):
         if auth_state:
             send_access_token = (
                 custom_config.get("drf-services", {})
@@ -104,10 +102,10 @@ class RequestAPIHandler(APIHandler):
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "uuidcode": uuidcode,
             "Authorization": os.environ.get(
                 f"{drf_service.upper()}_AUTHENTICATION_TOKEN", None
             ),
-            "uuidcode": uuidcode,
         }
         if access_token:
             headers["access-token"] = access_token

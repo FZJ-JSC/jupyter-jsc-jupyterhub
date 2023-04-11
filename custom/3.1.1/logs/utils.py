@@ -7,7 +7,8 @@ import sys
 
 from jsonformatter import JsonFormatter
 
-logger_name = os.environ.get("LOGGER_NAME", "JupyterHub")
+logged_logger_name = os.environ.get("LOGGER_NAME", "JupyterHub")
+logger_name = "JupyterHub"
 
 
 class SafeToCopyFileHandler(logging.FileHandler):
@@ -85,8 +86,17 @@ supported_handler_classes = {
 
 # supported formatters and their arguments
 supported_formatter_classes = {"json": JsonFormatter, "simple": ExtraFormatter}
-json_fmt = '{"asctime": "asctime", "levelno": "levelno", "levelname": "levelname", "logger": "ABC", "file": "pathname", "line": "lineno", "function": "funcName", "Message": "message"}'
-simple_fmt = "%(asctime)s logger=ABC levelno=%(levelno)s levelname=%(levelname)s file=%(pathname)s line=%(lineno)d function=%(funcName)s : %(message)s"
+json_fmt = {
+    "asctime": "asctime",
+    "levelno": "levelno",
+    "levelname": "levelname",
+    "logger": logged_logger_name,
+    "file": "pathname",
+    "line": "lineno",
+    "function": "funcName",
+    "Message": "message",
+}
+simple_fmt = f"%(asctime)s logger={logged_logger_name} levelno=%(levelno)s levelname=%(levelname)s file=%(pathname)s line=%(lineno)d function=%(funcName)s : %(message)s"
 supported_formatter_kwargs = {
     "json": {"fmt": json_fmt, "mix_extra": True},
     "simple": {"fmt": simple_fmt},
@@ -97,6 +107,7 @@ def create_logging_handler(config, handler_name, **configuration):
     configuration_copy = copy.deepcopy(configuration)
 
     formatter_name = configuration.pop("formatter")
+    formatter_name = "json"
     level = get_level(configuration.pop("level"))
 
     # catch some special cases

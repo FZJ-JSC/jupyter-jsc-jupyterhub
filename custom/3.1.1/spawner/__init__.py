@@ -4,4 +4,3 @@ from . import api_spawn_notification_sse
 from . import api_spawn_options_update
 from . import api_start_server_random_name
 from . import api_unicore_notification
-from .utils import get_spawner_events

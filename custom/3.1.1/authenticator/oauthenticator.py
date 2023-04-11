@@ -445,6 +445,44 @@ async def get_options_form(
     }
 
 
+class VoException(Exception):
+    def __init__(self, message):
+        self.message = message
+        super().__init__(message)
+
+
+def get_vos(auth_state, username, admin):
+    custom_config = get_custom_config()
+    used_authenticator = auth_state.get("oauth_user", {}).get(
+        "used_authenticator_attr", "unknown"
+    )
+    vo_config = custom_config.get("vos", {})
+
+    vos_with_weight = []
+    for vo_name, vo_infos in vo_config.items():
+        if (
+            used_authenticator in vo_infos.get("authenticators", [])
+            or username in vo_infos.get("usernames", [])
+            or (admin and vo_infos.get("admin", False))
+        ):
+            vos_with_weight.append((vo_name, vo_infos.get("weight", 99)))
+    vos_with_weight.sort(key=lambda x: x[1])
+
+    vo_available = []
+    for x in vos_with_weight:
+        vo_available.append(x[0])
+        if vo_config.get(x[0], {}).get("exclusive", False):
+            vo_available = [x[0]]
+            break
+    if len(vo_available) == 0:
+        raise VoException(f"No vo available for user {username}")
+
+    vo_active = auth_state.get("vo_active", None)
+    if not vo_active or vo_active not in vo_available:
+        vo_active = vo_available[0]
+    return vo_active, vo_available
+
+
 class CustomLogoutHandler(OAuthLogoutHandler):
     async def handle_logout(self):
         user = self.current_user
@@ -461,24 +499,6 @@ class CustomLogoutHandler(OAuthLogoutHandler):
         if user.authenticator.enable_auth_state:
             tokens = {}
             auth_state = await user.get_auth_state()
-            if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
-                "true",
-                "1",
-            ]:
-                metrics_logger = logging.getLogger("Metrics")
-                metrics_extras = {
-                    "action": "logout",
-                    "userid": user.id,
-                    "authenticator": auth_state.get("oauth_user", {}).get(
-                        "used_authenticator_attr", "unknown"
-                    ),
-                    "stopall": stop_all,
-                    "all_devices": all_devices,
-                }
-                metrics_logger.info(
-                    f"action={metrics_extras['action']};userid={metrics_extras['userid']};authenticator={metrics_extras['authenticator']};stopall={metrics_extras['stopall']};all_devices={metrics_extras['all_devices']}"
-                )
-                self.log.info("logout", extra=metrics_extras)
             access_token = auth_state.get("access_token", None)
             if access_token:
                 tokens["access_token"] = access_token
@@ -612,6 +632,13 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         """,
     )
 
+    true_auth_refresh_age = 300
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.true_auth_refresh_age = self.auth_refresh_age
+        self.auth_refresh_age = 1
+
     def get_callback_url(self, handler=None):
         # Replace _host_ in callback_url with current request
         ret = super().get_callback_url(handler)
@@ -662,7 +689,7 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         if not auth_state:
             return False
         authentication = {"auth_state": auth_state}
-        threshold = 5 * self.auth_refresh_age
+        threshold = 2 * self.true_auth_refresh_age
         now = time.time()
         rest_time = int(auth_state.get("exp", now)) - now
         if threshold > rest_time:
@@ -758,11 +785,19 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
 
         # In this part we classify the user in specific VOs.
         # This has to be replaced with the official JHub RBAC feature
+
         username = authentication.get("name", "unknown")
-        admin = authentication.get("admin", False)
-        # DEPRECATED and only used in frontend
-        authentication["auth_state"]["vo_active"] = "default"
-        authentication["auth_state"]["vo_available"] = ["default"]
+        try:
+            vo_active, vo_available = get_vos(
+                authentication["auth_state"],
+                username,
+                authentication.get("admin", False),
+            )
+        except VoException as e:
+            self.log.warning("Could not get vo for user - {}".format(e))
+            raise e
+        authentication["auth_state"]["vo_active"] = vo_active
+        authentication["auth_state"]["vo_available"] = vo_available
 
         # Now we collect the hpc_list information and create a useful python dict from it
         ## First let's add some "default_partitions", that should be added to each user,

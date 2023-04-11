@@ -211,7 +211,9 @@ class UserJobsForwardAPIHandler(RequestAPIHandler):
         )
 
         custom_config = get_custom_config()
-        req_prop = self.get_req_prop(custom_config, ujf.system, uuidcode=ujf.service)
+        req_prop = self.get_req_prop_system(
+            custom_config, ujf.system, uuidcode=ujf.service
+        )
         service_url = req_prop.get("urls", {}).get("userjobs", "None")
 
         req = HTTPRequest(
@@ -265,7 +267,7 @@ class UserJobsForwardAPIHandler(RequestAPIHandler):
 
         custom_config = get_custom_config()
         auth_state = await user.get_auth_state()
-        req_prop = self.get_req_prop(
+        req_prop = self.get_req_prop_system(
             custom_config, body["system"], body["service"], auth_state
         )
         service_url = req_prop.get("urls", {}).get("userjobs", "None")
@@ -466,7 +468,7 @@ class UserJobsAPIHandler(RequestAPIHandler):
 
         system = body["user_options"]["system"]
 
-        req_prop = self.get_req_prop(custom_config, system, service, auth_state)
+        req_prop = self.get_req_prop_system(custom_config, system, service, auth_state)
         service_url = req_prop.get("urls", {}).get("services", "None")
 
         self.log.info(
@@ -529,7 +531,9 @@ class UserJobsAPIHandler(RequestAPIHandler):
         auth_state = await user.get_auth_state()
         custom_config = get_custom_config()
 
-        req_prop = self.get_req_prop(custom_config, uj.system, uuidcode, auth_state)
+        req_prop = self.get_req_prop_system(
+            custom_config, uj.system, uuidcode, auth_state
+        )
         service_url = req_prop.get("urls", {}).get("services", "None")
 
         req = HTTPRequest(
@@ -564,7 +568,9 @@ class UserJobsAPIHandler(RequestAPIHandler):
         auth_state = await user.get_auth_state()
         custom_config = get_custom_config()
 
-        req_prop = self.get_req_prop(custom_config, uj.system, uuidcode, auth_state)
+        req_prop = self.get_req_prop_system(
+            custom_config, uj.system, uuidcode, auth_state
+        )
         service_url = req_prop.get("urls", {}).get("services", "None")
 
         req = HTTPRequest(

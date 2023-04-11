@@ -5,10 +5,13 @@ from uuid import uuid4
 
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import default_handlers
+from jupyterhub.handlers.base import BaseHandler
 from jupyterhub.scopes import needs_scope
+from tornado import web
 from tornado.httpclient import HTTPRequest
 
 from ..apihandler.misc import RequestAPIHandler
+from ..authenticator.api_vos import create_ns
 from ..misc import get_custom_config
 from .extra_handlers import default_configurations
 from .utils import create_logging_handler
@@ -264,9 +267,26 @@ class DRFServiceLogLevelAPIHandler(RequestAPIHandler):
         self.set_status(200)
 
 
+class LoggingHandler(BaseHandler):
+    @web.authenticated
+    @needs_scope("access:services")
+    async def get(self):
+        user = self.current_user
+        ns = await create_ns(user)
+        ns.update(
+            {
+                "show_drf_logs": os.environ.get("SHOW_DRF_LOGS", "false").lower()
+                in ["true", "1"]
+            }
+        )
+        html = await self.render_template("logging.html", **ns)
+        self.finish(html)
+
+
 default_handlers.append((r"/api/logs/jhub/handler", JHubLogLevelAPIHandler))
 default_handlers.append((r"/api/logs/jhub/handler/([^/]+)", JHubLogLevelAPIHandler))
 default_handlers.append((r"/api/logs/([^/]+)/handler", DRFServiceLogLevelAPIHandler))
 default_handlers.append(
     (r"/api/logs/([^/]+)/handler/([^/]+)", DRFServiceLogLevelAPIHandler)
 )
+default_handlers.append((r"/logging", LoggingHandler))

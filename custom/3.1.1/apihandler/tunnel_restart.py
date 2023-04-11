@@ -1,15 +1,14 @@
 import json
 import uuid
 
-from custom_utils.backend_services import BackendException
-from custom_utils.backend_services import drf_request
-from custom_utils.backend_services import drf_request_properties
-from jupyterhub.apihandlers.base import APIHandler
-from tornado.httpclient import HTTPClientError
+from jupyterhub.handlers import default_handlers
 from tornado.httpclient import HTTPRequest
 
+from . import RequestAPIHandler
+from .. import get_custom_config
 
-class ForwardTunnelRestartAPIHandler(APIHandler):
+
+class ForwardTunnelRestartAPIHandler(RequestAPIHandler):
     """APIHandler to forward restart request to tunnel webservice"""
 
     async def post(self):
@@ -27,8 +26,8 @@ class ForwardTunnelRestartAPIHandler(APIHandler):
             "body": body_dict,
         }
         self.log.info("Forward request to restart ssh-tunnels", extra=log_extras)
-        custom_config = self.authenticator.custom_config
-        req_prop = drf_request_properties("tunnel", custom_config, self.log, uuidcode)
+        custom_config = get_custom_config()
+        req_prop = self.get_req_prop(custom_config, "tunnel", uuidcode)
         req_prop["headers"]["Authorization"] = self.request.headers["Authorization"]
         tunnel_url = req_prop.get("urls", {}).get("restart", "None")
         req = HTTPRequest(
@@ -36,25 +35,17 @@ class ForwardTunnelRestartAPIHandler(APIHandler):
             method="POST",
             headers=req_prop["headers"],
             body=self.request.body,
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
+            **req_prop.get("request_kwargs", {})
         )
         try:
-            await drf_request(
-                req,
-                self.log,
-                self.authenticator.fetch,
-                "restarttunnel",
-                raise_exception=True,
-            )
-        except BackendException as e:
-            self.set_status(e.code)
-            self.write(e.error_detail)
-            return
-        except:
+            await self.send_request(req, "restarttunnel", uuidcode)
+        except Exception as e:
             self.set_status(500)
+            self.write(str(e))
             return
 
         self.set_status(200)
         return
+
+
+default_handlers.append((r"/api/restarttunnel", ForwardTunnelRestartAPIHandler))

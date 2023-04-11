@@ -3,9 +3,8 @@ import json
 import os
 from uuid import uuid4
 
-from custom_utils.backend_services import drf_request
-from custom_utils.backend_services import drf_request_properties
 from jupyterhub.apihandlers import APIHandler
+from jupyterhub.handlers import default_handlers
 from jupyterhub.scopes import needs_scope
 from logs import create_logging_handler
 from logs import remove_logging_handler
@@ -13,6 +12,9 @@ from logs.extra_handlers import default_configurations
 from logs.utils import supported_formatter_classes
 from logs.utils import supported_handler_classes
 from tornado.httpclient import HTTPRequest
+
+from . import RequestAPIHandler
+from .. import get_custom_config
 
 
 def get_config():
@@ -211,10 +213,13 @@ class JHubLogLevelAPIHandler(APIHandler):
         self.set_status(200)
 
 
-class DRFServiceLogLevelAPIHandler(APIHandler):
+class DRFServiceLogLevelAPIHandler(RequestAPIHandler):
     async def _drf_request(self, service, handler="", method="GET", body=None):
-        custom_config = self.authenticator.custom_config
-        req_prop = drf_request_properties(service, custom_config, self.log, uuid4().hex)
+        custom_config = get_custom_config()
+        uuidcode = uuid4().hex
+        action = f"loglevel_{method}"
+        req_prop = self.get_req_prop(custom_config, service, uuidcode)
+
         log_url = req_prop.get("urls", {}).get("logs", "None")
         if handler:
             log_url = log_url + handler + "/"
@@ -222,20 +227,12 @@ class DRFServiceLogLevelAPIHandler(APIHandler):
             log_url,
             method=method,
             headers=req_prop["headers"],
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
+            **req_prop.get("request_kwargs", {}),
         )
         if body:
             req.body = json.dumps(body)
-        resp = await drf_request(
-            req,
-            self.log,
-            self.authenticator.fetch,
-            parse_json=True,
-            raise_exception=True,
-        )
-        return resp
+        resp_json = await self.send_request(req, action, uuidcode)
+        return resp_json
 
     @needs_scope("access:services")
     async def get(self, service, handler=""):
@@ -265,3 +262,11 @@ class DRFServiceLogLevelAPIHandler(APIHandler):
             return
         await self._drf_request(service, handler, method="DELETE")
         self.set_status(200)
+
+
+default_handlers.append((r"/api/logs/jhub/handler", JHubLogLevelAPIHandler))
+default_handlers.append((r"/api/logs/jhub/handler/([^/]+)", JHubLogLevelAPIHandler))
+default_handlers.append((r"/api/logs/([^/]+)/handler", DRFServiceLogLevelAPIHandler))
+default_handlers.append(
+    (r"/api/logs/([^/]+)/handler/([^/]+)", DRFServiceLogLevelAPIHandler)
+)

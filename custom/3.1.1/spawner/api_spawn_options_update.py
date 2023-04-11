@@ -1,10 +1,13 @@
 from custom_utils import check_formdata_keys
+from jupyterhub.apihandlers import default_handlers
 from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.scopes import needs_scope
 from tornado import web
 
+from .. import get_custom_config
 
-class SpawnUpdateOptionsAPIHandler(APIHandler):
+
+class SpawnOptionsUpdateAPIHandler(APIHandler):
     @needs_scope("access:servers")
     async def post(self, user_name, server_name=""):
         user = self.find_user(user_name)
@@ -32,7 +35,7 @@ class SpawnUpdateOptionsAPIHandler(APIHandler):
         # Save new options
         formdata = self.get_json_body()
         try:
-            check_formdata_keys(formdata, user.authenticator.custom_config)
+            check_formdata_keys(formdata, get_custom_config())
         except KeyError as err:
             self.set_header("Content-Type", "text/plain")
             self.write(f"Bad Request - {str(err)}")
@@ -49,3 +52,11 @@ class SpawnUpdateOptionsAPIHandler(APIHandler):
         spawner.user_options = formdata
         self.db.commit()
         self.set_status(204)
+
+
+default_handlers.append(
+    (r"/api/users/([^/]+)/server/update", SpawnOptionsUpdateAPIHandler)
+)
+default_handlers.append(
+    (r"/api/users/([^/]+)/servers/([^/]*)/update", SpawnOptionsUpdateAPIHandler)
+)

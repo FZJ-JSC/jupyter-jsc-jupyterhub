@@ -1,6 +1,7 @@
 import random
 import uuid
 
+from jupyterhub.apihandlers import default_handlers
 from jupyterhub.apihandlers.users import UserServerAPIHandler
 from jupyterhub.scopes import needs_scope
 
@@ -26,3 +27,8 @@ class UserRandomServerAPIHandler(UserServerAPIHandler):
         c = random.choice("abcdef")
         server_name = f"{c}{uuid.uuid4().hex[:31]}"
         return await super().post(user_name, server_name)
+
+
+default_handlers.append(
+    (r"/api/users/([^/]+)/random/server", UserRandomServerAPIHandler)
+)

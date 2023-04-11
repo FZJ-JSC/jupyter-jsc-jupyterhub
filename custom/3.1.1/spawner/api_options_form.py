@@ -1,8 +1,11 @@
 import json
 
+from jupyterhub.apihandlers import default_handlers
 from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.scopes import needs_scope
 from tornado import web
+
+from .. import get_custom_config
 
 
 class SpawnOptionsFormAPIHandler(APIHandler):
@@ -38,7 +41,8 @@ class SpawnOptionsFormAPIHandler(APIHandler):
         system = spawner.user_options.get("system")
         account = spawner.user_options.get("account")
         interactive_partitions = (
-            user.authenticator.custom_config.get("systems", {})
+            get_custom_config()
+            .get("systems", {})
             .get(system, {})
             .get("interactive_partitions", [])
         )
@@ -82,3 +86,11 @@ class SpawnOptionsFormAPIHandler(APIHandler):
             tmp.get("resources", {}).get(service_type, {}).get(system, {})
         )
         self.write(json.dumps(ret))
+
+
+default_handlers.append(
+    (r"/api/users/([^/]+)/server/optionsform", SpawnOptionsFormAPIHandler)
+)
+default_handlers.append(
+    (r"/api/users/([^/]+)/servers/([^/]+)/optionsform", SpawnOptionsFormAPIHandler)
+)

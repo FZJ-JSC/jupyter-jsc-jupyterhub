@@ -7,10 +7,7 @@ import string
 import uuid
 from datetime import datetime
 
-from custom_utils.backend_services import BackendException
-from custom_utils.backend_services import drf_request
-from custom_utils.backend_services import drf_request_properties
-from jupyterhub.apihandlers.base import APIHandler
+from jupyterhub.handlers import default_handlers
 from jupyterhub.orm import Base
 from jupyterhub.orm import JSONDict
 from jupyterhub.scopes import needs_scope
@@ -22,6 +19,9 @@ from sqlalchemy import Integer
 from sqlalchemy import Unicode
 from tornado import web
 from tornado.httpclient import HTTPRequest
+
+from . import RequestAPIHandler
+from .. import get_custom_config
 
 
 class UserJobsORM(Base):
@@ -62,7 +62,7 @@ class UserJobsForwardORM(Base):
         return "<{} - UserJobsForwards for {}>".format(self.id, self.user_id)
 
 
-class UserJobsForwardAPIHandler(APIHandler):
+class UserJobsForwardAPIHandler(RequestAPIHandler):
     @needs_scope("access:servers")
     async def post(self):
         user = self.current_user
@@ -87,7 +87,7 @@ class UserJobsForwardAPIHandler(APIHandler):
 
         try:
             await self.userjobsforward_create(user, body)
-        except BackendException:
+        except Exception:
             self.set_status(400)
         else:
             ujfORM = UserJobsForwardORM(
@@ -183,7 +183,7 @@ class UserJobsForwardAPIHandler(APIHandler):
             if not user.orm_user.admin:
                 self.set_status(403)
                 return
-            custom_config = user.authenticator.custom_config
+            custom_config = get_custom_config()
             threshold = custom_config.get("userjobsforward", {}).get(
                 "cleanup_after_x_hours", 24
             )
@@ -199,41 +199,32 @@ class UserJobsForwardAPIHandler(APIHandler):
             self.set_status(204)
 
     async def userjobsforward_delete(self, user, ujf):
+        action = "userjobsforward_delete"
         self.log.info(
             "UserJobsForward delete ...",
             extra={
                 "uuidcode": ujf.service,
                 "username": user.name,
                 "userid": user.id,
-                "action": "userjobsforward_delete",
+                "action": action,
             },
         )
 
-        custom_config = user.authenticator.custom_config
-        req_prop = self.get_req_prop(custom_config, ujf.system, ujf.service)
+        custom_config = get_custom_config()
+        req_prop = self.get_req_prop(custom_config, ujf.system, uuidcode=ujf.service)
         service_url = req_prop.get("urls", {}).get("userjobs", "None")
+
         req = HTTPRequest(
             f"{service_url}{ujf.service}",
             method="DELETE",
-            headers=req_prop["headers"],
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
+            headers=req_prop.get("headers", {}),
+            **req_prop.get("request_kwargs", {}),
         )
 
         try:
-            resp_json = await drf_request(
-                req,
-                self.log,
-                user.authenticator.fetch,
-                "userjobsforward_delete",
-                user.name,
-                "UserJobsForward",
-                parse_json=True,
-                raise_exception=True,
-            )
-        except BackendException as e:
-            self.log.warning(
+            resp_json = await self.send_request(req, action, ujf.service)
+        except Exception as e:
+            self.log.exception(
                 "UserJobsForward delete ... failed.",
                 extra={
                     "uuidcode": ujf.service,
@@ -259,43 +250,37 @@ class UserJobsForwardAPIHandler(APIHandler):
             self.db.commit()
 
     async def userjobsforward_create(self, user, body):
+        action = "userjobsforward_create"
+        uuidcode = body["service"]
         self.log.info(
             "UserJobsForward create ...",
             extra={
-                "uuidcode": body["service"],
+                "uuidcode": uuidcode,
                 "username": user.name,
                 "userid": user.id,
-                "action": "userjobsforward_create",
+                "action": action,
                 "options": body,
             },
         )
 
-        custom_config = user.authenticator.custom_config
+        custom_config = get_custom_config()
         auth_state = await user.get_auth_state()
-        req_prop = self.get_req_prop(custom_config, body["system"], body["service"])
+        req_prop = self.get_req_prop(
+            custom_config, body["system"], body["service"], auth_state
+        )
         service_url = req_prop.get("urls", {}).get("userjobs", "None")
+
         req = HTTPRequest(
             service_url,
             method="POST",
-            headers=req_prop["headers"],
+            headers=req_prop.get("headers", {}),
             body=json.dumps(body),
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
+            **req_prop.get("request_kwargs", {}),
         )
 
         try:
-            resp_json = await drf_request(
-                req,
-                self.log,
-                user.authenticator.fetch,
-                "userjobsforward_create",
-                user.name,
-                "UserJobsForward",
-                parse_json=True,
-                raise_exception=True,
-            )
-        except BackendException as e:
+            resp_json = await self.send_request(req, action, uuidcode)
+        except Exception as e:
             self.log.warning(
                 "UserJobsForward create ... failed.",
                 extra={
@@ -303,7 +288,7 @@ class UserJobsForwardAPIHandler(APIHandler):
                     "username": user.name,
                     "userid": user.id,
                     "action": "userjobsforward_fail",
-                    "user_msg": e.jupyterhub_html_message,
+                    "user_msg": str(e),
                 },
             )
             raise e
@@ -318,27 +303,8 @@ class UserJobsForwardAPIHandler(APIHandler):
             },
         )
 
-    def get_req_prop(self, custom_config, system, uuidcode, auth_state=None):
-        drf_service = (
-            custom_config.get("systems", {}).get(system, {}).get("drf-service", None)
-        )
-        if auth_state:
-            send_access_token = (
-                custom_config.get("drf-services", {})
-                .get(drf_service, {})
-                .get("send_access_token", False)
-            )
-            access_token = auth_state["access_token"] if send_access_token else None
-        else:
-            access_token = None
 
-        req_prop = drf_request_properties(
-            drf_service, custom_config, self.log, uuidcode, access_token
-        )
-        return req_prop
-
-
-class UserJobsAPIHandler(APIHandler):
+class UserJobsAPIHandler(RequestAPIHandler):
 
     """
     Requirements for unicore job:
@@ -375,7 +341,7 @@ class UserJobsAPIHandler(APIHandler):
 
         try:
             await self.userjobs_create(user, body, service, suffix)
-        except BackendException:
+        except Exception:
             self.set_status(400)
         else:
             ujORM = UserJobsORM(
@@ -476,7 +442,7 @@ class UserJobsAPIHandler(APIHandler):
             if not user.orm_user.admin:
                 self.set_status(403)
                 return
-            custom_config = user.authenticator.custom_config
+            custom_config = get_custom_config()
             threshold = custom_config.get("userjobs", {}).get(
                 "cleanup_after_x_hours", 24
             )
@@ -493,21 +459,24 @@ class UserJobsAPIHandler(APIHandler):
             self.set_status(204)
 
     async def userjobs_create(self, user, body, service, suffix):
+        action = "userjobs_create"
+        uuidcode = service
         auth_state = await user.get_auth_state()
-        custom_config = user.authenticator.custom_config
+        custom_config = get_custom_config()
 
         system = body["user_options"]["system"]
 
         req_prop = self.get_req_prop(custom_config, system, service, auth_state)
         service_url = req_prop.get("urls", {}).get("services", "None")
+
         self.log.info(
             "UserJobs create ...",
             extra={
-                "uuidcode": service,
+                "uuidcode": uuidcode,
                 "username": user.name,
                 "userid": user.id,
                 "start_id": suffix,
-                "action": "userjobs_create",
+                "action": action,
                 "options": body,
             },
         )
@@ -518,11 +487,6 @@ class UserJobsAPIHandler(APIHandler):
         env["JUPYTERHUB_API_TOKEN"] = ""
         env["JUPYTERHUB_USER_ID"] = f"{user.id}"
 
-        # put this in body["env"] when sending request, not done in here
-        # if "ports" in body.keys():
-        #     env["JUPYTERHUB_USERJOBSFORWARD_PORTS"] = json.dumps(body["ports"])
-        #     env["JUPYTERHUB_USERJOBSFORWARD_SUFFIX"] = suffix
-
         popen_kwargs = {
             "auth_state": auth_state,
             "env": env,
@@ -531,7 +495,7 @@ class UserJobsAPIHandler(APIHandler):
         }
 
         if "vo" not in popen_kwargs["user_options"].keys():
-            popen_kwargs["user_options"]["vo"] = auth_state.get("vo_active", None)
+            popen_kwargs["user_options"]["vo"] = "default"
 
         if "input_files" in body.keys():
             popen_kwargs["input_files"] = body["input_files"]
@@ -541,21 +505,10 @@ class UserJobsAPIHandler(APIHandler):
             method="POST",
             headers=req_prop["headers"],
             body=json.dumps(popen_kwargs),
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
+            **req_prop.get("request_kwargs", {}),
         )
 
-        resp_json = await drf_request(
-            req,
-            self.log,
-            user.authenticator.fetch,
-            "userjobs_create",
-            user.name,
-            "UserJobs",
-            parse_json=True,
-            raise_exception=True,
-        )
+        resp_json = await self.send_request(req, action, uuidcode)
 
         self.log.info(
             "UserJobs create ... done",
@@ -571,34 +524,27 @@ class UserJobsAPIHandler(APIHandler):
         )
 
     async def userjobs_get(self, user, uj):
+        uuidcode = uj.service
+        action = "userjobs_poll"
         auth_state = await user.get_auth_state()
-        custom_config = user.authenticator.custom_config
+        custom_config = get_custom_config()
 
-        req_prop = self.get_req_prop(custom_config, uj.system, uj.service, auth_state)
+        req_prop = self.get_req_prop(custom_config, uj.system, uuidcode, auth_state)
         service_url = req_prop.get("urls", {}).get("services", "None")
 
         req = HTTPRequest(
             f"{service_url}{uj.service}/",
             method="GET",
             headers=req_prop["headers"],
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
+            **req_prop.get("request_kwargs", {}),
         )
-        resp_json = await drf_request(
-            req,
-            self.log,
-            user.authenticator.fetch,
-            "userjobs_poll",
-            user.name,
-            "UserJobs",
-            parse_json=True,
-            raise_exception=False,
+        resp_json = await self.send_request(
+            req, action, uuidcode, raise_exception=False
         )
 
         ret = {
             "id": uj.id,
-            "running": resp_json.ge("running", False),
+            "running": resp_json.get("running", False),
             "bss_details": resp_json.get("bss_details", uj.bss_details),
             "system": uj.system,
             "result": resp_json.get("details", uj.result),
@@ -613,46 +559,24 @@ class UserJobsAPIHandler(APIHandler):
         return ret
 
     async def userjobs_delete(self, user, uj):
+        uuidcode = uj.service
+        action = "userjobs_stop"
         auth_state = await user.get_auth_state()
-        custom_config = user.authenticator.custom_config
+        custom_config = get_custom_config()
 
-        req_prop = self.get_req_prop(custom_config, uj.system, uj.service, auth_state)
+        req_prop = self.get_req_prop(custom_config, uj.system, uuidcode, auth_state)
         service_url = req_prop.get("urls", {}).get("services", "None")
 
         req = HTTPRequest(
             f"{service_url}{uj.service}/",
             method="DELETE",
             headers=req_prop["headers"],
-            request_timeout=req_prop["request_timeout"],
-            validate_cert=req_prop["validate_cert"],
-            ca_certs=req_prop["ca_certs"],
+            **req_prop.get("request_kwargs", {}),
         )
-        await drf_request(
-            req,
-            self.log,
-            user.authenticator.fetch,
-            "userjobs_stop",
-            user.name,
-            "UserJobs",
-            parse_json=True,
-            raise_exception=False,
-        )
+        await self.send_request(req, action, uuidcode, raise_exception=False)
 
-    def get_req_prop(self, custom_config, system, uuidcode, auth_state=None):
-        drf_service = (
-            custom_config.get("systems", {}).get(system, {}).get("drf-service", None)
-        )
-        if auth_state:
-            send_access_token = (
-                custom_config.get("drf-services", {})
-                .get(drf_service, {})
-                .get("send_access_token", False)
-            )
-            access_token = auth_state["access_token"] if send_access_token else None
-        else:
-            access_token = None
 
-        req_prop = drf_request_properties(
-            drf_service, custom_config, self.log, uuidcode, access_token
-        )
-        return req_prop
+default_handlers.append((r"/api/userjobs", UserJobsAPIHandler))
+default_handlers.append((r"/api/userjobs/([^/]+)", UserJobsAPIHandler))
+default_handlers.append((r"/api/userjobsforward", UserJobsForwardAPIHandler))
+default_handlers.append((r"/api/userjobsforward/([^/]+)", UserJobsForwardAPIHandler))

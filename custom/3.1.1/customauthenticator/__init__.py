@@ -1,2 +1,0 @@
-from .customoauthenticator import CustomGenericOAuthenticator
-from .customoauthenticator import CustomLogoutHandler

@@ -1,8 +1,11 @@
 import asyncio
 
+from jupyterhub.apihandlers import default_handlers
 from jupyterhub.apihandlers.users import SpawnProgressAPIHandler
 from jupyterhub.scopes import needs_scope
 from tornado import web
+
+from .eventspawner import get_user_spawner_events
 
 
 class SpawnNotificationAPIHandler(SpawnProgressAPIHandler):
@@ -19,19 +22,14 @@ class SpawnNotificationAPIHandler(SpawnProgressAPIHandler):
         # start sending keepalive to avoid proxies closing the connection
         asyncio.ensure_future(self.keepalive())
 
-        if user.id not in user.authenticator.user_spawner_events.keys():
-            user.authenticator.user_spawner_events[user.id] = {
-                "start": asyncio.Event(),
-                "stop": asyncio.Event(),
-            }
-        event = user.authenticator.user_spawner_events[user.id]["start"]
-        await event.wait()
+        events = get_user_spawner_events(user.id)
+        await events["start"].wait()
         spawners = user.spawners.values()
         # Set active spawners as event data
         event_data = {s.name: s.pending for s in spawners if s.pending}
         await self.send_event(event_data)
         # Clear event after sending in case stream has been closed
-        event.clear()
+        events["start"].clear()
         return
 
 
@@ -49,13 +47,8 @@ class SpawnStopNotificationAPIHandler(SpawnProgressAPIHandler):
         # start sending keepalive to avoid proxies closing the connection
         asyncio.ensure_future(self.keepalive())
 
-        if user.id not in user.authenticator.user_spawner_events.keys():
-            user.authenticator.user_spawner_events[user.id] = {
-                "start": asyncio.Event(),
-                "stop": asyncio.Event(),
-            }
-        event = user.authenticator.user_spawner_events[user.id]["stop"]
-        await event.wait()
+        events = get_user_spawner_events[user.id]
+        await events["stop"].wait()
         spawners = user.spawners.values()
         # Send last event of stopping spawners only
         event_data = {
@@ -65,5 +58,13 @@ class SpawnStopNotificationAPIHandler(SpawnProgressAPIHandler):
         }
         await self.send_event(event_data)
         # Clear event after sending in case stream has been closed
-        event.clear()
+        events["stop"].clear()
         return
+
+
+default_handlers.append(
+    (r"/api/users/([^/]+)/notifications/spawners/spawn", SpawnNotificationAPIHandler)
+)
+default_handlers.append(
+    (r"/api/users/([^/]+)/notifications/spawners/stop", SpawnStopNotificationAPIHandler)
+)

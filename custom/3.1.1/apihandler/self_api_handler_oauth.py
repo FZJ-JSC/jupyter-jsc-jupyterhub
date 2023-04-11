@@ -4,7 +4,10 @@ import json
 from jupyterhub import orm
 from jupyterhub import scopes
 from jupyterhub.apihandlers.base import APIHandler
+from jupyterhub.handlers import default_handlers
 from tornado import web
+
+from .. import get_custom_config
 
 
 class SelfAPIHandlerOAuth(APIHandler):
@@ -56,12 +59,17 @@ class SelfAPIHandlerOAuth(APIHandler):
         # but not the refresh token.
         auth_state = await user.get_auth_state()
         model_auth_state = {}
-        allowed_auth_state_keys = user.authenticator.custom_config.get(
-            "selfapihandler", {}
-        ).get("allowed_auth_state_keys", ["access_token"])
+        allowed_auth_state_keys = (
+            get_custom_config()
+            .get("selfapihandler", {})
+            .get("allowed_auth_state_keys", ["access_token"])
+        )
         for key, value in auth_state.items():
             if key in allowed_auth_state_keys:
                 model_auth_state[key] = copy.deepcopy(value)
         model["auth_state"] = model_auth_state
 
         self.write(json.dumps(model))
+
+
+default_handlers.append((r"/api/user_oauth", SelfAPIHandlerOAuth))

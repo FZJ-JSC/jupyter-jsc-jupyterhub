@@ -4,12 +4,15 @@ from datetime import datetime
 from datetime import timezone
 
 from jupyterhub.apihandlers.base import APIHandler
+from jupyterhub.handlers import default_handlers
 from jupyterhub.orm import Base
 from jupyterhub.scopes import needs_scope
 from jupyterhub.utils import utcnow
 from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Integer
+
+from .. import get_custom_config
 
 
 class HPCAccountUpdatesORM(Base):
@@ -57,9 +60,7 @@ class HPCUpdateAPIHandler(APIHandler):
             # test if it's just one string
             if len(body) > 0 and len(body[0]) == 1:
                 body = ["".join(body)]
-            default_partitions = self.authenticator.custom_config.get(
-                "default_partitions"
-            )
+            default_partitions = get_custom_config().get("default_partitions")
             to_add = []
             for entry in body:
                 partition = re.search("[^,]+,([^,]+),[^,]+,[^,]+", entry).groups()[0]
@@ -79,3 +80,6 @@ class HPCUpdateAPIHandler(APIHandler):
             await user.save_auth_state(auth_state)
         self.set_status(200)
         return
+
+
+default_handlers.append((r"/api/refreshhpc/([^/]+)", HPCUpdateAPIHandler))

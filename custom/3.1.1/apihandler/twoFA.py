@@ -1,11 +1,11 @@
 import json
-import logging
 import os
 import uuid
 from datetime import datetime
 from datetime import timedelta
 
 from jupyterhub.apihandlers.base import APIHandler
+from jupyterhub.handlers import default_handlers
 from jupyterhub.handlers.base import BaseHandler
 from jupyterhub.utils import url_path_join
 from tornado import web
@@ -28,13 +28,6 @@ class TwoFAAPIHandler(APIHandler):
                 uuidcode, username
             )
         )
-        if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
-            metrics_logger = logging.getLogger("Metrics")
-            metrics_extras = {"action": "request2fa", "userid": user.id}
-            metrics_logger.info(
-                f"action={metrics_extras['action']};userid={metrics_extras['userid']}"
-            )
-            self.log.info("request2fa", extra=metrics_extras)
         send2fa_config_path = os.environ.get("SEND2FA_CONFIG_PATH", None)
         if not send2fa_config_path:
             self.log.error("Please define $SEND2FA_CONFIG_PATH environment variable.")
@@ -104,16 +97,6 @@ class TwoFAAPIHandler(APIHandler):
                         uuidcode, username
                     )
                 )
-                if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in [
-                    "true",
-                    "1",
-                ]:
-                    metrics_logger = logging.getLogger("Metrics")
-                    metrics_extras = {"action": "delete2fa", "userid": user.id}
-                    metrics_logger.info(
-                        f"action={metrics_extras['action']};userid={metrics_extras['userid']}"
-                    )
-                    self.log.info("delete2fa", extra=metrics_extras)
 
                 self.log.debug(
                     "uuidcode={} - Delete user from group via ssh to Unity VM".format(
@@ -154,13 +137,6 @@ class TwoFACodeHandler(BaseHandler):
         self.log.info(
             "uuidcode={} - action=activate2fa - user={}".format(uuidcode, username)
         )
-        if os.environ.get("LOGGING_METRICS_ENABLED", "false").lower() in ["true", "1"]:
-            metrics_logger = logging.getLogger("Metrics")
-            metrics_extras = {"action": "activate2fa", "userid": user.id}
-            metrics_logger.info(
-                f"action={metrics_extras['action']};userid={metrics_extras['userid']}"
-            )
-            self.log.info("activate2fa", extra=metrics_extras)
 
         result = TwoFAORM.validate_token(TwoFAORM, self.db, user.id, code)
         if result:
@@ -219,3 +195,7 @@ class TwoFACodeHandler(BaseHandler):
             code_text=code_text,
         )
         self.finish(html)
+
+
+default_handlers.append((r"/api/2FA", TwoFAAPIHandler))
+default_handlers.append((r"/2FA/([^/]+)", TwoFACodeHandler))

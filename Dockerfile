@@ -19,8 +19,9 @@ COPY --chown=jovyan:users ./requirements.txt /tmp/requirements.txt
 RUN /usr/local/bin/pip3 install -r /tmp/requirements.txt
 
 # Add custom files
-COPY --chown=jovyan:users ./custom/${JUPYTERHUB_VERSION} /src/jupyterhub-custom
-RUN /usr/local/bin/pip3 install -r /src/jupyterhub-custom/requirements.txt
+RUN mkdir -p /src/jupyterhub-custom
+COPY --chown=jovyan:users ./custom/${JUPYTERHUB_VERSION} /src/jupyterhub-custom/jsc_custom
+RUN /usr/local/bin/pip3 install -r /src/jupyterhub-custom/jsc_custom/requirements.txt
 
 # Install patches for specific JupyterHub Version
 RUN apt update && \

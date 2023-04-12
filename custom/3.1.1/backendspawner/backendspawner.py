@@ -34,18 +34,6 @@ class BackendSpawner(Spawner):
     already_stopped = False
     already_post_stop_hooked = False
 
-    poll_interval_randomizer = Integer(
-        20,
-        help="""
-        When JupyterHub restarts, it will send a poll to all running JupyterLabs.
-        This will lead to a massive spam to the backend API every `Spawner.poll_interval`
-        seconds. This option can help to dispense the poll requests after a hub restart.
-        
-        random.randint(0, 1e3 * self.poll_interval_randomizer) will be added to
-	    self.poll_interval. Each Spawner object will have it's own interval.        
-        """,
-    ).tag(config=True)
-
     request_url_start = Union(
         [Unicode(), Callable()],
         help="""
@@ -85,8 +73,8 @@ class BackendSpawner(Spawner):
             request_headers_start = self.request_headers_start
         return request_headers_start
 
-    request_kwargs = Dict(
-        default={},
+    request_kwargs = Union(
+        [Dict(), Callable()],
         help="""
         Allows you to add additional keywords to HTTPRequest Object.
         Examples:
@@ -95,6 +83,15 @@ class BackendSpawner(Spawner):
           request_timeout
         """,
     ).tag(config=True)
+
+    def get_request_kwargs(self):
+        if callable(self.request_kwargs):
+            request_kwargs = self.request_kwargs(self)
+        elif self.request_kwargs:
+            request_kwargs = self.request_kwargs
+        else:
+            request_kwargs = {}
+        return request_kwargs
 
     port = Union(
         [Integer(), Callable()],
@@ -108,6 +105,24 @@ class BackendSpawner(Spawner):
         else:
             port = self.port
         return port
+
+    poll_interval = Union(
+        [Integer(), Callable()],
+        help="""
+        Interval (in seconds) on which to poll the spawner for single-user server's status.
+
+        At every poll interval, each spawner's `.poll` method is called, which checks
+        if the single-user server is still running. If it isn't running, then JupyterHub modifies
+        its own state accordingly and removes appropriate routes from the configurable proxy.
+        """,
+    ).tag(config=True)
+
+    def get_poll_interval(self):
+        if callable(self.poll_interval):
+            poll_interval = self.poll_interval(self)
+        else:
+            poll_interval = self.poll_interval
+        return poll_interval
 
     service_address = Union(
         [Unicode(), Callable()],
@@ -302,15 +317,11 @@ class BackendSpawner(Spawner):
         Callbacks registered via `add_poll_callback` will fire if/when the server stops.
         Explicit termination via the stop method will not trigger the callbacks.
 
-        We've added a randomized timer self.poll_interval_randomizer.
         """
-
-        if self.poll_interval <= 0:
+        poll_interval = self.get_poll_interval()
+        if poll_interval <= 0:
             return
         else:
-            poll_interval = 1e3 * self.poll_interval + random.randint(
-                0, 1e3 * self.poll_interval_randomizer
-            )
             self.log.debug("Polling service status every %ims", poll_interval)
 
         self.stop_polling()
@@ -405,7 +416,7 @@ class BackendSpawner(Spawner):
             method="POST",
             headers=request_header,
             body=json.dumps(request_body),
-            **self.request_kwargs,
+            **self.get_request_kwargs(),
         )
 
         try:
@@ -460,7 +471,7 @@ class BackendSpawner(Spawner):
             url=url,
             method="GET",
             headers=headers,
-            **self.request_kwargs,
+            **self.get_request_kwargs(),
         )
 
         try:
@@ -492,7 +503,7 @@ class BackendSpawner(Spawner):
             url=url,
             method="DELETE",
             headers=headers,
-            **self.request_kwargs,
+            **self.get_request_kwargs(),
         )
 
         await self.send_request(req, action="stop", raise_exception=False)

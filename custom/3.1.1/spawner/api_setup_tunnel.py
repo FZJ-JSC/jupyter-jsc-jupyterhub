@@ -85,8 +85,7 @@ class SetupTunnelAPIHandler(APIHandler):
                 .get("request_kwargs", {})
             )
             if not request_kwargs and hasattr(spawner, "request_kwargs"):
-                # If nothing's configured, we use the spawner kwargs as backup
-                request_kwargs = spawner.request_kwargs
+                request_kwargs = {"request_timeout": 20}
 
             req = HTTPRequest(
                 url=service_url,

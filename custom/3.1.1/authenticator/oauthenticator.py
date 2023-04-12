@@ -513,12 +513,7 @@ class CustomLogoutHandler(OAuthLogoutHandler):
 
             unity_revoke_config = get_custom_config().get("unity", {}).get("revoke", {})
             unity_revoke_url = unity_revoke_config.get("url", "")
-            unity_revoke_certificate = unity_revoke_config.get(
-                "certificate_path", False
-            )
-            unity_revoke_request_timeout = unity_revoke_config.get(
-                "request_timeout", 10
-            )
+            unity_revoke_request_kwargs = unity_revoke_config.get("request_kwargs", {})
             unity_revoke_expected_status_code = unity_revoke_config.get(
                 "expected_status_code", 200
             )
@@ -528,13 +523,10 @@ class CustomLogoutHandler(OAuthLogoutHandler):
                 "Content-Type": "application/x-www-form-urlencoded",
             }
             data = {"client_id": client_id, "logout": "true"}
-            ca_certs = unity_revoke_certificate if unity_revoke_certificate else None
-            validate_cert = True if ca_certs else False
 
             log_extras = {
                 "unity_revoke_url": unity_revoke_url,
-                "unity_revoke_certificate": unity_revoke_certificate,
-                "unity_revoke_request_timeout": unity_revoke_request_timeout,
+                "unity_revoke_request_kwargs": unity_revoke_request_kwargs,
                 "unity_revoke_expected_status_code": unity_revoke_expected_status_code,
                 "data": copy.deepcopy(data),
             }
@@ -550,9 +542,7 @@ class CustomLogoutHandler(OAuthLogoutHandler):
                         method="POST",
                         headers=headers,
                         body=urlencode(data),
-                        request_timeout=unity_revoke_request_timeout,
-                        validate_cert=validate_cert,
-                        ca_certs=ca_certs,
+                        **unity_revoke_request_kwargs,
                     )
                     resp = await user.authenticator.fetch(req)
                     if resp and resp.code != unity_revoke_expected_status_code:

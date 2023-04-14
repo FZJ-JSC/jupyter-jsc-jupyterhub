@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 
 from async_generator import aclosing
+from jupyterhub.utils import maybe_future
 from jupyterhub.utils import url_path_join
 from traitlets import Callable
 from traitlets import Dict
@@ -149,9 +150,9 @@ class EventBackendSpawner(BackendSpawner):
         "html_message": "JupyterLab is cancelling the start.",
     }
 
-    def get_cancelling_event(self):
+    async def get_cancelling_event(self):
         if callable(self.cancelling_event):
-            cancelling_event = self.cancelling_event(self)
+            cancelling_event = await maybe_future(self.cancelling_event(self))
         elif self.cancelling_event:
             cancelling_event = self.cancelling_event
         else:
@@ -172,14 +173,42 @@ class EventBackendSpawner(BackendSpawner):
         "html_message": "JupyterLab was stopped.",
     }
 
-    def get_stop_event(self):
+    async def get_stop_event(self):
         if callable(self.stop_event):
-            stop_event = self.stop_event(self)
+            stop_event = await maybe_future(self.stop_event(self))
         elif self.stop_event:
             stop_event = self.stop_event
         else:
             stop_event = self.stop_event_default
         return stop_event
+
+    def run_failed_spawn_request_hook(self, exception):
+        now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+        event = {
+            "progress": 99,
+            "failed": False,
+            "html_message": f"<details><summary>{now}: JupyterLab start failed. Deleting related resources...</summary>This may take a few seconds.</details>",
+        }
+        self.latest_events.append(event)
+        if hasattr(exception, "args") and len(exception.args) > 2:
+            try:
+                body = json.loads(exception.args[2].body.decode())
+            except:
+                self.log.exception("Could not load detailed error message")
+                body = "unknown error"
+            msg = f"{exception.args[0]} - {exception.args[1]}: {body}"
+
+            async def _get_stop_event(spawner):
+                now = datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+                event = {
+                    "progress": 100,
+                    "failed": True,
+                    "html_message": f"<details><summary>{now}: JupyterLab stopped.</summary>{msg}</details>",
+                }
+                return event
+
+            self.stop_event = _get_stop_event
+        return super().run_failed_spawn_request_hook(exception)
 
     def run_pre_spawn_hook(self):
         """Some commands are required."""
@@ -239,7 +268,7 @@ class EventBackendSpawner(BackendSpawner):
             return
 
         if cancel:
-            cancelling_event = self.get_cancelling_event()
+            cancelling_event = await self.get_cancelling_event()
             self.latest_events.append(cancelling_event)
 
         # always use cancel=False, and call the function later if neccessary.
@@ -247,7 +276,7 @@ class EventBackendSpawner(BackendSpawner):
         await super().stop(now, cancel=False)
 
         if not event:
-            event = self.get_stop_event()
+            event = await self.get_stop_event()
         self.latest_events.append(event)
 
         if cancel:

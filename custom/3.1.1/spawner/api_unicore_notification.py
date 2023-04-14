@@ -41,9 +41,12 @@ class SpawnEventsUNICOREAPIHandler(APIHandler):
                 cert = r.content
 
             # Validate certifica
+            algorithms = custom_config.get("unicore_updates", {}).get(
+                "algorithms", ["RS256"]
+            )
             cert_obj = load_pem_x509_certificate(cert, default_backend())
             token = self.request.headers.get("Authorization", "Bearer -").split()[1]
-            jwt.decode(token, cert_obj.public_key())
+            jwt.decode(token, cert_obj.public_key(), algorithms=algorithms)
 
         body = self.request.body.decode("utf8")
         body = json.loads(body) if body else {}

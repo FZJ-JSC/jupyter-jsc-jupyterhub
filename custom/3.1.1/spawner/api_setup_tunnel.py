@@ -82,27 +82,25 @@ class SetupTunnelAPIHandler(APIHandler):
             request_kwargs = (
                 custom_config.get("drf-services", {})
                 .get("tunnel", {})
-                .get("request_kwargs", {})
+                .get("request_kwargs", {"request_timeout": 20})
             )
-            if not request_kwargs and hasattr(spawner, "request_kwargs"):
-                request_kwargs = {"request_timeout": 20}
 
             req = HTTPRequest(
                 url=service_url,
                 method="POST",
                 headers=headers,
                 body=json.dumps(json_body),
-                **spawner.request_kwargs,
+                **request_kwargs,
             )
 
             try:
-                resp_json = await spawner.send_request(req, action="setuptunnel")
+                await spawner.send_request(req, action="setuptunnel")
             except Exception as e:
                 now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
                 failed_event = {
                     "progress": 100,
                     "failed": True,
-                    "html_message": f"<details><summary>{now}Could not setup tunnel</summary>{resp_json} - {str(e)}</details>",
+                    "html_message": f"<details><summary>{now}: Could not setup tunnel</summary>{str(e)}</details>",
                 }
                 self.log.exception(
                     f"Could not setup tunnel for {user_name}:{server_name}",

@@ -422,6 +422,10 @@ class BackendSpawner(Spawner):
         try:
             resp_json = await self.send_request(req, action="start")
         except Exception as e:
+            # If JupyterHub could not start the service, additional
+            # actions may be required.
+            await maybe_future(self.run_failed_spawn_request_hook(e))
+
             try:
                 await self.stop()
             except:
@@ -439,10 +443,6 @@ class BackendSpawner(Spawner):
             # available again faster.
             self.already_stopped = True
             self.already_post_stop_hooked = True
-
-            # If JupyterHub could not start the service, additional
-            # actions may be required.
-            await maybe_future(self.run_failed_spawn_request_hook(e))
 
             raise e
 

@@ -25,9 +25,6 @@ from traitlets import Union
 
 class BackendSpawner(Spawner):
     # We will give each Start attempt its own 8 chars long id.
-    # This allows the a backend API to receive the start call
-    # for a new JupyterLab with the same name, while the previous
-    # one is not fully stopped yet.
     start_id = ""
 
     # This is used to prevent multiple requests during the stop procedure.
@@ -37,6 +34,7 @@ class BackendSpawner(Spawner):
     request_url_start = Union(
         [Unicode(), Callable()],
         help="""
+        URL used in single-user server start request.
         """,
     ).tag(config=True)
 
@@ -50,6 +48,7 @@ class BackendSpawner(Spawner):
     request_body_start = Union(
         [Dict(), Callable()],
         help="""
+        body used in single-user server start request.
         """,
     ).tag(config=True)
 
@@ -63,6 +62,7 @@ class BackendSpawner(Spawner):
     request_headers_start = Union(
         [Dict(), Callable()],
         help="""
+        headers used in single-user server start request.
         """,
     ).tag(config=True)
 
@@ -128,6 +128,7 @@ class BackendSpawner(Spawner):
     service_address = Union(
         [Unicode(), Callable()],
         help="""
+        JupyterHub will look at this address for the single-user server.
         """,
     ).tag(config=True)
 
@@ -139,7 +140,6 @@ class BackendSpawner(Spawner):
         return service_address
 
     def run_pre_spawn_hook(self):
-        """Some commands are required."""
         if self.already_stopped:
             raise Exception("Server is in the process of stopping, please wait.")
         self.start_id = uuid.uuid4().hex[:8]
@@ -165,7 +165,7 @@ class BackendSpawner(Spawner):
 
     failed_spawn_request_hook = Callable(
         help="""
-        If a start of a JupyterLab fails, you can run additional commands here.
+        If a start of a single-user server fails, you can run additional commands here.
         This allows you to handle a failed start attempt properly, according to
         your specific backend API.
         
@@ -190,7 +190,7 @@ class BackendSpawner(Spawner):
 
     post_spawn_request_hook = Callable(
         help="""
-        If a start of a JupyterLab was successful, you can run additional commands here.
+        If a start of a single-user server was successful, you can run additional commands here.
         This allows you to handle a successful start attempt properly, according to
         your specific backend API.
         
@@ -225,6 +225,7 @@ class BackendSpawner(Spawner):
     request_url_poll = Union(
         [Unicode(), Callable()],
         help="""
+        URL used in single-user server poll request.
         """,
     ).tag(config=True)
 
@@ -238,6 +239,7 @@ class BackendSpawner(Spawner):
     request_headers_poll = Union(
         [Dict(), Callable()],
         help="""
+        headers used in single-user server poll request.
         """,
     ).tag(config=True)
 
@@ -249,20 +251,23 @@ class BackendSpawner(Spawner):
         return request_headers_poll
 
     request_404_poll_keep_running = Bool(
-        False,
+        default_value=False,
         help="""
+        How to handle a 404 response from backend API during single-user poll request.
         """,
     ).tag(config=True)
 
     request_failed_poll_keep_running = Bool(
-        False,
+        default_value=False,
         help="""
+        How to handle a failed request to backend API during single-user poll request.
         """,
     ).tag(config=True)
 
     request_url_stop = Union(
         [Unicode(), Callable()],
         help="""
+        URL used in single-user server stop request.
         """,
     ).tag(config=True)
 
@@ -276,6 +281,7 @@ class BackendSpawner(Spawner):
     request_headers_stop = Union(
         [Dict(), Callable()],
         help="""
+        headers used in single-user server stop request.
         """,
     ).tag(config=True)
 
@@ -368,15 +374,6 @@ class BackendSpawner(Spawner):
                 return None
 
     async def send_request(self, req, action, raise_exception=True):
-        self.log.debug(
-            f"Communicate {action} with backend service ( {req.url} )",
-            extra={
-                "uuidcode": self.name,
-                "log_name": self._log_name,
-                "user": self.user.name,
-                "action": action,
-            },
-        )
         tic = time.monotonic()
         try:
             resp = await self.fetch(req, action)
@@ -399,15 +396,8 @@ class BackendSpawner(Spawner):
                 },
             )
 
-    async def get_certs(self):
-        ret = {}
-        for key, path in self.cert_paths.items():
-            with open(path, "r") as f:
-                ret[key] = f.read()
-        return ret
-
     async def start(self):
-        self.log.info(f"Start {self.name}-{self.start_id}")
+        self.log.info(f"Start single-user server {self.name}-{self.start_id}")
         request_body = await self.get_request_body_start()
         request_header = await self.get_request_headers_start()
         url = await self.get_request_url_start()
@@ -525,7 +515,7 @@ class BackendSpawner(Spawner):
     async def cancel(self):
         try:
             # If this function was called with cancel=True, it was called directly
-            # and not via user.stop. So we want to cleanup in the user object
+            # and not via user.stop. So we want to cleanup the user object
             # as well. It will throw an exception, but we expect the asyncio task
             # to be cancelled, because we've cancelled it ourself.
             await self.user.stop(self.name)

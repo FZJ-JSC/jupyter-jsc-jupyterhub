@@ -146,6 +146,7 @@ class EventBackendSpawner(BackendSpawner):
             "html_message": "JupyterLab is cancelling the start.",
         },
         help="""
+        Event shown when single-user server was cancelled.
         """,
     ).tag(config=True)
 
@@ -166,6 +167,7 @@ class EventBackendSpawner(BackendSpawner):
             "html_message": "JupyterLab was stopped.",
         },
         help="""
+        Event shown when single-user server was stopped.
         """,
     ).tag(config=True)
 

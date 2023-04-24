@@ -75,6 +75,7 @@ class BackendSpawner(Spawner):
 
     request_kwargs = Union(
         [Dict(), Callable()],
+        default_value={},
         help="""
         Allows you to add additional keywords to HTTPRequest Object.
         Examples:
@@ -87,14 +88,13 @@ class BackendSpawner(Spawner):
     def get_request_kwargs(self):
         if callable(self.request_kwargs):
             request_kwargs = self.request_kwargs(self)
-        elif self.request_kwargs:
-            request_kwargs = self.request_kwargs
         else:
-            request_kwargs = {}
+            request_kwargs = self.request_kwargs
         return request_kwargs
 
     port = Union(
         [Integer(), Callable()],
+        default_value=8080,
         help="""
         """,
     ).tag(config=True)
@@ -108,6 +108,7 @@ class BackendSpawner(Spawner):
 
     poll_interval = Union(
         [Integer(), Callable()],
+        default_value=0,
         help="""
         Interval (in seconds) on which to poll the spawner for single-user server's status.
 

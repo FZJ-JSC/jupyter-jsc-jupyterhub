@@ -138,48 +138,42 @@ class EventBackendSpawner(BackendSpawner):
 
     cancelling_event = Union(
         [Dict(), Callable()],
+        default_value={
+            "failed": False,
+            "ready": False,
+            "progress": 99,
+            "message": "",
+            "html_message": "JupyterLab is cancelling the start.",
+        },
         help="""
         """,
     ).tag(config=True)
-
-    cancelling_event_default = {
-        "failed": False,
-        "ready": False,
-        "progress": 99,
-        "message": "",
-        "html_message": "JupyterLab is cancelling the start.",
-    }
 
     async def get_cancelling_event(self):
         if callable(self.cancelling_event):
             cancelling_event = await maybe_future(self.cancelling_event(self))
-        elif self.cancelling_event:
-            cancelling_event = self.cancelling_event
         else:
-            cancelling_event = self.cancelling_event_default
+            cancelling_event = self.cancelling_event
         return cancelling_event
 
     stop_event = Union(
         [Dict(), Callable()],
+        default_value={
+            "failed": True,
+            "ready": False,
+            "progress": 100,
+            "message": "",
+            "html_message": "JupyterLab was stopped.",
+        },
         help="""
         """,
     ).tag(config=True)
 
-    stop_event_default = {
-        "failed": True,
-        "ready": False,
-        "progress": 100,
-        "message": "",
-        "html_message": "JupyterLab was stopped.",
-    }
-
     async def get_stop_event(self):
         if callable(self.stop_event):
             stop_event = await maybe_future(self.stop_event(self))
-        elif self.stop_event:
-            stop_event = self.stop_event
         else:
-            stop_event = self.stop_event_default
+            stop_event = self.stop_event
         return stop_event
 
     def run_failed_spawn_request_hook(self, exception):

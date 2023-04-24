@@ -3,13 +3,13 @@ import datetime
 import json
 import os
 
+from backendspawner import user_cancel_message
 from jupyterhub.apihandlers import default_handlers
 from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.scopes import needs_scope
 from tornado import web
 from tornado.httpclient import HTTPRequest
 
-from ..backendspawner import user_cancel_message
 from ..misc import get_custom_config
 
 

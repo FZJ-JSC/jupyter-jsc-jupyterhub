@@ -47,7 +47,7 @@ class SetupTunnelAPIHandler(APIHandler):
 
             json_body["servername"] = spawner.name
             json_body["svc_port"] = spawner.port
-            json_body["svc_name"] = spawner.get_service_address()
+            json_body["svc_name"] = spawner.get_service_address().split(".")[0]
             labels = {
                 "hub.jupyter.org/username": user.name,
                 "hub.jupyter.org/servername": spawner.name,

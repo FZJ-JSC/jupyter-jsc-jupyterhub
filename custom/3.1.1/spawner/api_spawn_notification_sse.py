@@ -23,19 +23,13 @@ class SpawnNotificationAPIHandler(SpawnProgressAPIHandler):
         asyncio.ensure_future(self.keepalive())
 
         events = get_spawner_events(user.id)
-        await events["spawn_status_change"].wait()
+        await events["start"].wait()
         spawners = user.spawners.values()
         # Set active spawners as event data
-        event_data = {
-            "start": {s.name: s.pending for s in spawners if s.pending},
-            "stop": {
-                s.name: s.latest_events[-1] for s in spawners
-                if s.pending == "stop" and s.latest_events != []
-            }
-        }
+        event_data = {s.name: s.pending for s in spawners if s.pending}
         await self.send_event(event_data)
         # Clear event after sending in case stream has been closed
-        events["spawn_status_change"].clear()
+        events["start"].clear()
         return
 
 

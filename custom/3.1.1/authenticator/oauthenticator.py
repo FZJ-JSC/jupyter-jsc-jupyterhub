@@ -430,11 +430,6 @@ async def get_options_form(
 
     dropdown_lists = {
         "options": options,
-        "systems": systems,
-        "accounts": accounts,
-        "projects": projects,
-        "partitions": partitions,
-        "reservations": reservations,
     }
 
     return {

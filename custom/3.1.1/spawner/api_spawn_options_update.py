@@ -35,7 +35,7 @@ class SpawnOptionsUpdateAPIHandler(APIHandler):
         # Save new options
         formdata = self.get_json_body()
         try:
-            check_formdata_keys(formdata, get_custom_config())
+            check_formdata_keys(formdata)
         except KeyError as err:
             self.set_header("Content-Type", "text/plain")
             self.write(f"Bad Request - {str(err)}")

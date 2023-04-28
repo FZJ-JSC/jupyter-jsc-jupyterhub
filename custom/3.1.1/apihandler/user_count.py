@@ -24,7 +24,7 @@ def get_user_count(db):
 
     now = time.time()
     if now - _user_count_last_update > _user_count_cache_timeout:
-        app_log.debug("Update user_count via database ...")
+        # app_log.debug("Update user_count via database ...")
         try:
             running_spawner = (
                 db.query(orm_spawner).filter(orm_spawner.server_id.isnot(None)).all()
@@ -60,7 +60,7 @@ def get_user_count(db):
                 db.query(orm_user).filter(orm_user.last_activity > active_range).all()
             )
             ret["jupyterhub"] = len(active_users)
-            app_log.debug("Update user_count via database ... done", extra=ret)
+            # app_log.debug("Update user_count via database ... done", extra=ret)
         except:
             app_log.exception("Could not create user_count dict")
             ret = {}

@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2023-04-03 13:29:48.624053693 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2023-04-03 13:31:29.664035144 +0200
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2023-04-28 11:49:10.143921030 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2023-04-28 11:47:37.523928995 +0200
 @@ -693,20 +693,12 @@
          # - spawner not running at all
          # - spawner failed
@@ -19,7 +19,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              # spawner already ready. Trigger progress-completion immediately
              self.log.info("Server %s is already started", spawner._log_name)
 -            await self.send_event(ready_event)
-+            await self.send_event(spawner.ready_event)
++            await self.send_event(spawner.get_ready_event())
              return
  
          spawn_future = spawner._spawn_future
@@ -28,19 +28,31 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              # spawner is ready, signal completion and redirect
              self.log.info("Server %s is ready", spawner._log_name)
 -            await self.send_event(ready_event)
-+            await self.send_event(spawner.ready_event)
++            await self.send_event(spawner.get_ready_event())
          else:
              # what happened? Maybe spawn failed?
              f = spawn_future
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/spawner.py ../jupyterhub-patched/jupyterhub/spawner.py
---- ../jupyterhub/jupyterhub/spawner.py	2023-04-03 13:29:48.634053690 +0200
-+++ ../jupyterhub-patched/jupyterhub/spawner.py	2023-04-03 13:31:29.744035126 +0200
-@@ -1240,6 +1240,17 @@
+--- ../jupyterhub/jupyterhub/spawner.py	2023-04-28 11:49:13.793920757 +0200
++++ ../jupyterhub-patched/jupyterhub/spawner.py	2023-04-28 11:52:16.683905485 +0200
+@@ -1240,6 +1240,32 @@
      def _progress_url(self):
          return self.user.progress_url(self.name)
  
-+    @property
-+    def ready_event(self):        
++    ready_event = Callable(
++        help="""
++        An optional hook function that you can implement to use a different
++        ready event.
++
++        This can be set independent of any concrete spawner implementation.
++        """
++    ).tag(config=True)
++
++    @default("ready_event")
++    def _ready_event(self):
++        return self._default_ready_event
++
++    def _default_ready_event(self, spawner):
 +        url = url_path_join(self.user.url, url_escape_path(self.name), '/')
 +        return {
 +            'progress': 100,
@@ -49,6 +61,9 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
 +            'html_message': 'Server ready at <a href="{0}">{0}</a>'.format(url),
 +            'url': url,
 +        }
++
++    def get_ready_event(self):
++        return self.ready_event(self)
 +
      async def _generate_progress(self):
          """Private wrapper of progress generator

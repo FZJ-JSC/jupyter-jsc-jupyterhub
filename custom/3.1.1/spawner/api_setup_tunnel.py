@@ -32,6 +32,7 @@ class SetupTunnelAPIHandler(APIHandler):
         user = self.find_user(user_name)
         spawner = user.spawners[server_name]
         uuidcode = server_name
+
         if spawner._stop_pending:
             self.log.debug(
                 "APICall: SetupTunnel - but spawner is already stopping.",
@@ -47,6 +48,7 @@ class SetupTunnelAPIHandler(APIHandler):
             self.write("Bad Request.")
             self.set_status(400)
             return
+
         custom_config = get_custom_config()
         if json_body:
             self.log.debug(

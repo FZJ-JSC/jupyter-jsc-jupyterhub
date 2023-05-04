@@ -5,6 +5,7 @@ from jupyterhub.utils import token_authenticated
 from tornado import web
 
 from ..misc import get_custom_config
+from .oauthenticator import get_options_form
 from .oauthenticator import get_vos
 
 
@@ -37,6 +38,13 @@ class VOAPIHandler(APIHandler):
         state = await user.get_auth_state()
         if group in state.get("vo_available", []):
             state["vo_active"] = group
+            hpc_list = state.get("oauth_user", {}).get("hpc_infos_attribute", [])
+            state["options_form"] = await get_options_form(
+                auth_log=self.log,
+                service="JupyterLab",
+                vo_active=group,
+                user_hpc_accounts=hpc_list,
+            )
             await user.save_auth_state(state)
         else:
             self.log.debug(
@@ -55,6 +63,13 @@ class VOTokenAPIHandler(APIHandler):
         state = await user.get_auth_state()
         if group in state.get("vo_available", []):
             state["vo_active"] = group
+            hpc_list = state.get("oauth_user", {}).get("hpc_infos_attribute", [])
+            state["options_form"] = await get_options_form(
+                auth_log=self.log,
+                service="JupyterLab",
+                vo_active=group,
+                user_hpc_accounts=hpc_list,
+            )
             await user.save_auth_state(state)
         else:
             self.log.debug(

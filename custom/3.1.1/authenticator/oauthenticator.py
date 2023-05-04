@@ -19,6 +19,7 @@ from traitlets import Unicode
 from traitlets import Union
 
 from ..misc import _custom_config_file
+from ..misc import _reservations_file
 from ..misc import get_custom_config
 from ..misc import get_incidents
 from ..misc import get_reservations
@@ -151,9 +152,8 @@ def get_system_infos(
     return systems, accounts, projects, partitions, reservations
 
 
-async def get_options_form(
-    auth_log, service, vo_active, user_hpc_accounts, custom_config
-):
+async def get_options_form(auth_log, service, vo_active, user_hpc_accounts):
+    custom_config = get_custom_config()
     vo_config = custom_config.get("vos")
     resources = custom_config.get("resources")
 
@@ -638,6 +638,27 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         return user_info
 
     async def update_auth_state_custom_config(self, authentication, force=False):
+        update_authentication = False
+        last_change_reservation = os.path.getmtime(_reservations_file)
+        if (
+            force
+            or authentication["auth_state"].get("reservation_update", 0)
+            < last_change_reservation
+        ):
+            hpc_list = (
+                authentication["auth_state"]
+                .get("oauth_user", {})
+                .get("hpc_infos_attribute", [])
+            )
+            authentication["auth_state"]["options_form"] = await get_options_form(
+                auth_log=self.log,
+                service="JupyterLab",
+                vo_active=authentication["auth_state"]["vo_active"],
+                user_hpc_accounts=hpc_list,
+            )
+            authentication["auth_state"]["reservation_update"] = last_change_reservation
+            update_authentication = True
+
         last_change = os.path.getmtime(_custom_config_file)
         if (
             force
@@ -662,9 +683,10 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                         key
                     ]
             authentication["auth_state"]["custom_config_update"] = last_change
+            update_authentication = True
+        if update_authentication:
             return authentication
         else:
-            # User is up to date
             return True
 
     async def refresh_user(self, user, handler=None):
@@ -829,13 +851,13 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
 
         ## Currently we only support JupyterLab, we have to update this in the future
         ## if we want to support multiple services.
-        custom_config = get_custom_config()
+        last_change_reservation = os.path.getmtime(_reservations_file)
+        authentication["auth_state"]["reservation_update"] = last_change_reservation
         authentication["auth_state"]["options_form"] = await get_options_form(
             auth_log=self.log,
             service="JupyterLab",
-            vo_active="default",
+            vo_active=vo_active,
             user_hpc_accounts=hpc_list,
-            custom_config=custom_config,
         )
 
         ## We have a few custom config features on the frontend. For this, we have to store

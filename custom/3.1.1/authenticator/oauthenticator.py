@@ -639,7 +639,10 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
 
     async def update_auth_state_custom_config(self, authentication, force=False):
         update_authentication = False
-        last_change_reservation = os.path.getmtime(_reservations_file)
+        try:
+            last_change_reservation = os.path.getmtime(_reservations_file)
+        except:
+            last_change_reservation = 0
         if (
             force
             or authentication["auth_state"].get("reservation_update", 0)
@@ -659,7 +662,10 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
             authentication["auth_state"]["reservation_update"] = last_change_reservation
             update_authentication = True
 
-        last_change = os.path.getmtime(_custom_config_file)
+        try:
+            last_change = os.path.getmtime(_custom_config_file)
+        except:
+            last_change = 0
         if (
             force
             or authentication["auth_state"].get("custom_config_update", 0) < last_change
@@ -851,7 +857,10 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
 
         ## Currently we only support JupyterLab, we have to update this in the future
         ## if we want to support multiple services.
-        last_change_reservation = os.path.getmtime(_reservations_file)
+        try:
+            last_change_reservation = os.path.getmtime(_reservations_file)
+        except:
+            last_change_reservation = 0
         authentication["auth_state"]["reservation_update"] = last_change_reservation
         authentication["auth_state"]["options_form"] = await get_options_form(
             auth_log=self.log,

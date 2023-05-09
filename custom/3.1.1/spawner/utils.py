@@ -22,7 +22,7 @@ def check_formdata_keys(data):
         for system in systems_config
         if systems_config[system].get("drf-service", None) == "unicoremgr"
     ]
-    required_keys = {"vo", "name", "service", "system"}
+    required_keys = {"name", "service", "system"}
     if data.get("system") in unicore_systems:
         required_keys = required_keys | {"account", "project", "partition"}
     allowed_keys = required_keys | {

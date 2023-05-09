@@ -496,9 +496,6 @@ class UserJobsAPIHandler(RequestAPIHandler):
             "start_id": suffix,
         }
 
-        if "vo" not in popen_kwargs["user_options"].keys():
-            popen_kwargs["user_options"]["vo"] = "default"
-
         if "input_files" in body.keys():
             popen_kwargs["input_files"] = body["input_files"]
 

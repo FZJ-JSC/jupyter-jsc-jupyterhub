@@ -1,12 +1,7 @@
-import json
-import os
-
 from jupyterhub.handlers import default_handlers
 from jupyterhub.handlers.base import BaseHandler
-from jupyterhub.scopes import needs_scope
-from tornado import web
 
-from ..authenticator.api_vos import create_ns
+from ..authenticator.api_services import create_ns
 
 
 class LinksHandler(BaseHandler):

@@ -1,2 +1,2 @@
-from . import api_vos
+from . import api_services
 from .oauthenticator import CustomGenericOAuthenticator

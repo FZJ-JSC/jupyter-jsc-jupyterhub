@@ -202,9 +202,7 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
         values_via_service += infos.get("allowed_lists", {}).get(key, default_values)
         values_via_service = unique_list(values_via_service)
         values_via_groups = [
-            *option_config.get("replace_allowed_lists", {}).get(
-                "partitions", values_via_service
-            )
+            *option_config.get("replace_allowed_lists", {}).get(key, values_via_service)
         ]
         values_via_groups = unique_list(values_via_groups)
         return in_both_lists(values_via_service, values_via_groups)
@@ -248,22 +246,13 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
                         )
 
                         for partition in partitions:
-                            try:
-                                reservations = get_allowed_values(
-                                    option_config,
-                                    "reservations",
-                                    reservations_default[system][account][project][
-                                        partition
-                                    ],
-                                )
-                            except:
-                                reservations = get_allowed_values(
-                                    option_config,
-                                    "reservations",
-                                    reservations_default[system][account][project][
-                                        partition
-                                    ],
-                                )
+                            reservations = get_allowed_values(
+                                option_config,
+                                "reservations",
+                                reservations_default[system][account][project][
+                                    partition
+                                ],
+                            )
 
                             if option not in options.keys():
                                 options[option] = {}

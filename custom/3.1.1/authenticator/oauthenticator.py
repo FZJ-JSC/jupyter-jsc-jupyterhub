@@ -338,11 +338,16 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
         for option, _systems in options.items()
     }
 
-    return {
+    ret = {
         "dropdown_list": options,
         "reservations": reservations_dict,
         "resources": resources_replaced,
     }
+    import json
+
+    rets = json.dumps(ret["dropdown_list"], sort_keys=True, indent=2)
+    auth_log.debug(f"Update authentication - {rets}")
+    return ret
 
 
 class VoException(Exception):
@@ -623,6 +628,7 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                 authentication["auth_state"],
                 authentication.get("admin", False),
             )
+            authentication["groups"] = authentication["auth_state"]["groups"]
             service_active, services_available = get_services(
                 authentication["auth_state"], custom_config
             )
@@ -772,7 +778,7 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         except VoException as e:
             self.log.warning("Could not get groups for user - {}".format(e))
             raise e
-
+        authentication["groups"] = authentication["auth_state"]["groups"]
         # Now we collect the hpc_list information and create a useful python dict from it
         ## First let's add some "default_partitions", that should be added to each user,
         ## even if it's listed in hpc_list

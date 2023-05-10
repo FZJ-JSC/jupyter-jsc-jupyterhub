@@ -345,16 +345,11 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
         for option, _systems in options.items()
     }
 
-    ret = {
+    return {
         "dropdown_list": options,
         "reservations": reservations_dict,
         "resources": resources_replaced,
     }
-    import json
-
-    rets = json.dumps(ret["dropdown_list"], sort_keys=True, indent=2)
-    auth_log.debug(f"Update authentication - {rets}")
-    return ret
 
 
 class VoException(Exception):
@@ -706,20 +701,21 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                     name = self.username_key(user_data_resp_json)
                 else:
                     name = user_data_resp_json.get(self.username_key)
-                    if not name:
-                        self.log.error(
-                            "OAuth user contains no key %s: %s",
-                            self.username_key,
-                            user_data_resp_json,
-                        )
-                        return
-
-                    if not token_resp_json.get("refresh_token", None):
-                        token_resp_json["refresh_token"] = refresh_token_save
-                    authentication["auth_state"] = self._create_auth_state(
-                        token_resp_json, user_data_resp_json
+                if not name:
+                    self.log.error(
+                        "OAuth user contains no key %s: %s",
+                        self.username_key,
+                        user_data_resp_json,
                     )
-                    ret = await self.run_post_auth_hook(handler, authentication)
+                    return
+
+                authentication["name"] = name
+                if not token_resp_json.get("refresh_token", None):
+                    token_resp_json["refresh_token"] = refresh_token_save
+                authentication["auth_state"] = self._create_auth_state(
+                    token_resp_json, user_data_resp_json
+                )
+                ret = await self.run_post_auth_hook(handler, authentication)
             except:
                 self.log.exception(
                     "Refresh of user's {name} access token failed".format(

@@ -316,7 +316,6 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
                 group_values.append(group_specific_value)
         if key == "minmax":
             group_values = unique_list(group_values)
-            group_values.append(default_resource_value)
             # minmax is a list within a list. We want to get the
             # lowest min and the highest max value
             min_ = [x[0] for x in group_values]

@@ -158,12 +158,13 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
     resources = custom_config.get("resources")
 
     incidents_dict = get_incidents()
-    threshold_health = incidents_dict.get("threshold")
+    threshold_health = incidents_dict.get("threshold", 0)
     systems_list = [*custom_config.get("systems", {})]
     incidents_list = [
         x
         for x in systems_list
-        if incidents_dict.get(x, {}).get("health", 0) >= threshold_health
+        if incidents_dict.get(x, {}).get("health", threshold_health - 1)
+        >= threshold_health
     ]
     reservations_dict = get_reservations()
 

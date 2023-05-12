@@ -254,14 +254,9 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
                         )
 
                         for partition in partitions:
-                            reservations_names = [
-                                x.get("ReservationName", "None")
-                                for x in reservations_default[system][account][project][
-                                    partition
-                                ]
-                                if type(x) == dict
-                            ]
-                            reservations = unique_list(["None"] + reservations_names)
+                            reservations = reservations_default[system][account][
+                                project
+                            ][partition]
 
                             if option not in options.keys():
                                 options[option] = {}

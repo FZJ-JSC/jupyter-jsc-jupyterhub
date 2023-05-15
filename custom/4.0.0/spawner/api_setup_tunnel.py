@@ -32,73 +32,25 @@ class SetupTunnelAPIHandler(APIHandler):
         user = self.find_user(user_name)
         spawner = user.spawners[server_name]
         uuidcode = server_name
-        custom_config = get_custom_config()
-        drf_service = (
-            custom_config.get("systems", {})
-            .get(spawner.user_options.get("system", "None"), {})
-            .get("drf-service", None)
-        )
-        if drf_service == "k8smgrhdfcloud":
+
+        if spawner._stop_pending:
             self.log.debug(
-                "APICall: Update Service",
+                "APICall: SetupTunnel - but spawner is already stopping.",
                 extra={
                     "uuidcode": uuidcode,
                     "log_name": f"{user_name}:{server_name}",
                     "user": user_name,
-                    "action": "updateservice",
+                    "action": "setuptunnel",
+                    "event": json_body,
                 },
             )
-            base_url = (
-                custom_config.get("drf-services", {})
-                .get(drf_service, {})
-                .get("urls", {})
-                .get("services", "None")
-            )
-            request_kwargs = (
-                custom_config.get("drf-services", {})
-                .get(drf_service, {})
-                .get("request_kwargs", {})
-            )
-            if "request_timeout" not in request_kwargs.keys():
-                request_kwargs["request_timeout"] = 30
-            url = f"{base_url}{spawner.name}/"
-            headers = {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": os.environ.get(
-                    f"{drf_service.upper()}_AUTHENTICATION_TOKEN", None
-                ),
-                "uuidcode": spawner.name,
-            }
-            req = HTTPRequest(
-                url=url,
-                method="PATCH",
-                headers=headers,
-                **request_kwargs,
-            )
-            try:
-                await spawner.send_request(
-                    req, action="updateservice", raise_exception=False
-                )
-            except Exception as e:
-                now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
-                failed_event = {
-                    "progress": 100,
-                    "failed": True,
-                    "html_message": f"<details><summary>{now}: Could not create necessary resources.</summary>{str(e)}</details>",
-                }
-                self.log.exception(
-                    f"Could not update service for {user_name}:{server_name}",
-                    extra={
-                        "uuidcode": uuidcode,
-                        "log_name": f"{user_name}:{server_name}",
-                        "user": user_name,
-                        "action": "updateservicefailed",
-                        "event": failed_event,
-                    },
-                )
-                asyncio.create_task(spawner.stop(cancel=True, event=failed_event))
-        elif json_body:
+            self.set_header("Content-Type", "text/plain")
+            self.write("Bad Request.")
+            self.set_status(400)
+            return
+
+        custom_config = get_custom_config()
+        if json_body:
             self.log.debug(
                 "APICall: SetupTunnel",
                 extra={

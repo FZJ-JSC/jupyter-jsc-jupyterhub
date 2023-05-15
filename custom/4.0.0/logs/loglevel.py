@@ -11,7 +11,7 @@ from tornado import web
 from tornado.httpclient import HTTPRequest
 
 from ..apihandler.misc import RequestAPIHandler
-from ..authenticator.api_vos import create_ns
+from ..authenticator.api_services import create_ns
 from ..misc import get_custom_config
 from .extra_handlers import default_configurations
 from .utils import create_logging_handler

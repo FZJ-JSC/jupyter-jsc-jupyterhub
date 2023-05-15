@@ -51,7 +51,7 @@ def get_reservations():
         return _reservations_cache
 
 
-_incidents_cache = []
+_incidents_cache = {}
 _incidents_last_update = 0
 _incidents_file = os.environ.get("INCIDENTS_FILE")
 

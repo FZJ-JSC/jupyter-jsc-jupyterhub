@@ -19,6 +19,7 @@ from traitlets import Unicode
 from traitlets import Union
 
 from ..misc import _custom_config_file
+from ..misc import _reservations_file
 from ..misc import get_custom_config
 from ..misc import get_incidents
 from ..misc import get_reservations
@@ -151,16 +152,29 @@ def get_system_infos(
     return systems, accounts, projects, partitions, reservations
 
 
-async def get_options_form(
-    auth_log, service, vo_active, user_hpc_accounts, custom_config
-):
-    vo_config = custom_config.get("vos")
+async def get_options_form(auth_log, service, groups, user_hpc_accounts):
+    custom_config = get_custom_config()
+    groups_config = custom_config.get("groups")
     resources = custom_config.get("resources")
 
-    incidents_list = get_incidents()
+    incidents_dict = get_incidents()
+    threshold_health = incidents_dict.get("threshold", 0)
+    systems_list = [*custom_config.get("systems", {})]
+    incidents_list = [
+        x
+        for x in systems_list
+        if incidents_dict.get(x, {}).get("health", threshold_health - 1)
+        >= threshold_health
+    ]
     reservations_dict = get_reservations()
 
-    systems, accounts, projects, partitions, reservations = get_system_infos(
+    (
+        systems_default,
+        accounts_default,
+        projects_default,
+        partitions_default,
+        reservations_default,
+    ) = get_system_infos(
         auth_log,
         custom_config,
         user_hpc_accounts,
@@ -169,11 +183,18 @@ async def get_options_form(
     )
 
     def in_both_lists(list1, list2):
-        return list(set(list1).intersection(set(list2)))
+        try:
+            return list(set(list1).intersection(set(list2)))
+        except TypeError:
+            return list(
+                set([tuple(x) for x in list1]).intersection(
+                    set([tuple(x) for x in list2])
+                )
+            )
 
     # Need this to manually create set of list if the list contains a dict
     # since all elements of a set must be hashable and a dict is not
-    def create_set(list):
+    def unique_list(list):
         unique_list = []
         for entry in list:
             if entry not in unique_list:
@@ -183,240 +204,132 @@ async def get_options_form(
     required_partitions = {}
     options = {}
 
+    def get_allowed_values(option_config, key, default_values=[]):
+        values_via_service = []
+        values_via_groups = []
+        values_via_service += infos.get("allowed_lists", {}).get(key, default_values)
+        values_via_service = unique_list(values_via_service)
+        values_via_groups = [
+            *option_config.get("replace_allowed_lists", {}).get(key, values_via_service)
+        ]
+        values_via_groups = unique_list(values_via_groups)
+        return in_both_lists(values_via_service, values_via_groups)
+
     service_info = custom_config.get("services", {}).get(service, {}).get("options", {})
-    for option, infos in service_info.items():
-        replace_allowed_lists = (
-            vo_config.get(vo_active, {})
-            .get("Services", {})
-            .get(service, {})
-            .get(option, {})
-            .get("replace_allowed_lists", {})
-            .keys()
-        )
-
-        # Check if the specific option is part of vo"s allowed services
-        if (
-            option
-            not in vo_config.get(vo_active, {})
-            .get("Services", {})
-            .get(service, {})
-            .keys()
-        ):
-            continue
-
-        if "systems" in replace_allowed_lists:
-            allowed_lists_systems = (
-                vo_config.get(vo_active, {})
-                .get("Services", {})
+    for group in groups:
+        for option, infos in service_info.items():
+            option_config = (
+                groups_config.get(group, {})
+                .get("services", {})
                 .get(service, {})
                 .get(option, {})
-                .get("replace_allowed_lists", {})["systems"]
             )
-        else:
-            allowed_lists_systems = infos.get("allowed_lists", {}).get(
-                "systems", systems
-            )
-        systems_used = in_both_lists(systems, allowed_lists_systems)
-
-        for system in systems_used:
-            # Maintenance -> Not allowed
-            if system in incidents_list:
+            if not option_config:
                 continue
+            # Collect the default systems for the service.
+            # Collect the systems allowed for each group.
+            # Combine them to the actual allowed systems list
+            systems = get_allowed_values(option_config, "systems", systems_default)
 
-            if "accounts" in replace_allowed_lists:
-                allowed_lists_accounts = (
-                    vo_config.get(vo_active, {})
-                    .get("Services", {})
-                    .get(service, {})
-                    .get(option, {})
-                    .get("replace_allowed_lists", {})["accounts"]
-                )
-            else:
-                allowed_lists_accounts = infos.get("allowed_lists", {}).get(
-                    "accounts", accounts[system]
-                )
-            accounts_used = in_both_lists(accounts[system], allowed_lists_accounts)
+            for system in systems:
+                # Maintenance -> Not allowed
+                if system in incidents_list:
+                    continue
 
-            for account in accounts_used:
-                if "projects" in replace_allowed_lists:
-                    allowed_lists_projects = (
-                        vo_config.get(vo_active, {})
-                        .get("Services", {})
-                        .get(service, {})
-                        .get(option, {})
-                        .get("replace_allowed_lists", {})["projects"]
+                # Do the same for accounts, what we did for the systems before
+                accounts = get_allowed_values(
+                    option_config, "accounts", accounts_default[system]
+                )
+
+                for account in accounts:
+                    projects = get_allowed_values(
+                        option_config, "projects", projects_default[system][account]
                     )
-                else:
-                    allowed_lists_projects = infos.get("allowed_lists", {}).get(
-                        "projects", projects[system][account]
-                    )
-                projects_used = in_both_lists(
-                    projects[system][account], allowed_lists_projects
-                )
 
-                for project in projects_used:
-                    if "partitions" in replace_allowed_lists:
-                        allowed_lists_partitions = (
-                            vo_config.get(vo_active, {})
-                            .get("Services", {})
-                            .get(service, {})
-                            .get(option, {})
-                            .get("replace_allowed_lists", {})["partitions"]
+                    for project in projects:
+                        partitions = get_allowed_values(
+                            option_config,
+                            "partitions",
+                            partitions_default[system][account][project],
                         )
-                    else:
-                        allowed_lists_partitions = infos.get("allowed_lists", {}).get(
-                            "partitions", partitions[system][account][project]
-                        )
-                    partitions_used = in_both_lists(
-                        partitions[system][account][project], allowed_lists_partitions
-                    )
 
-                    for partition in partitions_used:
-                        if "reservations" in replace_allowed_lists:
-                            allowed_lists_reservations = (
-                                vo_config.get(vo_active, {})
-                                .get("Services", {})
-                                .get(service, {})
-                                .get(option, {})
-                                .get("replace_allowed_lists", {})["reservations"]
-                            )
-                        else:
-                            allowed_lists_reservations = infos.get(
-                                "allowed_lists", {}
-                            ).get(
-                                "reservations",
-                                reservations[system][account][project][partition],
-                            )
-                        reservations_used = [
-                            value
-                            for value in create_set(
-                                reservations[system][account][project][partition]
-                            )
-                            if value in create_set(allowed_lists_reservations)
-                        ]
-                        if (
-                            "reservations" in replace_allowed_lists
-                            and len(reservations_used) == 0
-                        ):
-                            # Dashboards expects specific reservations which we don't have
-                            continue
+                        for partition in partitions:
+                            reservations = reservations_default[system][account][
+                                project
+                            ][partition]
 
-                        if option not in options.keys():
-                            options[option] = {}
-                        if system not in options[option].keys():
-                            options[option][system] = {}
-                        if account not in options[option][system].keys():
-                            options[option][system][account] = {}
-                        if project not in options[option][system][account].keys():
-                            options[option][system][account][project] = {}
-                        if system not in required_partitions.keys():
-                            required_partitions[system] = []
-                        if partition not in required_partitions[system]:
-                            required_partitions[system].append(partition)
-                        options[option][system][account][project][
-                            partition
-                        ] = reservations_used
+                            if option not in options.keys():
+                                options[option] = {}
+                            if system not in options[option].keys():
+                                options[option][system] = {}
+                            if account not in options[option][system].keys():
+                                options[option][system][account] = {}
+                            if project not in options[option][system][account].keys():
+                                options[option][system][account][project] = {}
+                            if system not in required_partitions.keys():
+                                required_partitions[system] = []
+                            if partition not in required_partitions[system]:
+                                required_partitions[system].append(partition)
+                            options[option][system][account][project][
+                                partition
+                            ] = reservations
 
-        for system in systems_used:
-            if option not in options.keys():
-                options[option] = {}
-            if system not in options[option].keys() and system not in incidents_list:
-                options[option][system] = {}
+            for system in systems:
+                if option not in options.keys():
+                    options[option] = {}
+                if (
+                    system not in options[option].keys()
+                    and system not in incidents_list
+                ):
+                    options[option][system] = {}
 
     if not options:
         return {
             "options": {},
-            "maintenance": incidents_list,
-            "message": f"The {vo_active} group does not support {service} services.",
+            "message": f"The groups does not support {service} services.",
         }
 
-    def replace_resource(option, system, partition, resource, key):
-        value = resources[system][partition][resource][key]
-        if type(value) is int or type(value) is list:
-            if (
-                resource
-                in vo_config.get(vo_active, {})
-                .get("Services", {})
+    def replace_resources(service, option, system, partition, resource, key):
+        group_values = []
+        default_resource_value = resources[system][partition][resource][key]
+        for group in groups:
+            group_specific_value = (
+                groups_config.get(group, {})
+                .get("services", {})
                 .get(service, {})
                 .get(option, {})
                 .get("replace_resources", {})
                 .get(system, {})
                 .get(partition, {})
-                .keys()
-            ):
-                if key == "minmax":
-                    value = (
-                        vo_config.get(vo_active, {})
-                        .get("Services", {})
-                        .get(service, {})
-                        .get(option, {})
-                        .get("replace_resources", {})
-                        .get(system, {})
-                        .get(partition, {})[resource]
-                    )
-                    if (
-                        type(value) == list
-                        and len(value) > 0
-                        and type(value[0]) == list
-                    ):
-                        value = value[0]
-                elif key == "default":
-                    value = (
-                        vo_config.get(vo_active, {})
-                        .get("Services", {})
-                        .get(service, {})
-                        .get(option, {})
-                        .get("replace_resources", {})
-                        .get(system, {})
-                        .get(partition, {})[resource]
-                    )
-                    if (
-                        type(value) == list
-                        and len(value) > 0
-                        and type(value[0]) == list
-                    ):
-                        value = value[1]
-                    else:
-                        value = value[0]
-            return value
+                .get(resource, {})
+                .get(key, default_resource_value)
+            )
+            # for resources other than minmax we have to override the default with the first hit.
+            # The groups are sorted by weight (ascending)
+            if key != "minmax":
+                if group_specific_value != default_resource_value:
+                    return group_specific_value
+            else:
+                group_values.append(group_specific_value)
+        if key == "minmax":
+            group_values = unique_list(group_values)
+            # minmax is a list within a list. We want to get the
+            # lowest min and the highest max value
+            min_ = [x[0] for x in group_values]
+            max_ = [x[1] for x in group_values]
+            return [min(min_), max(max_)]
         else:
-            if (
-                resource
-                in vo_config.get(vo_active, {})
-                .get("Services", {})
-                .get(service, {})
-                .get(option, {})
-                .get("replace_resources", {})
-                .get(system, {})
-                .get(partition, {})
-                .keys()
-            ):
-                minmax = (
-                    vo_config.get(vo_active, {})
-                    .get("Services", {})
-                    .get(service, {})
-                    .get(option, {})
-                    .get("replace_resources", {})
-                    .get(system, {})
-                    .get(partition, {})[resource]
-                )
-                if type(minmax) == list and len(minmax) > 0 and type(minmax[0]) == list:
-                    minmax = minmax[0]
-            else:
-                minmax = resources[system][partition][resource]["minmax"]
-            if type(value) == str:
-                return value.replace("_min_", str(minmax[0])).replace(
-                    "_max_", str(minmax[1])
-                )
-            else:
-                return value
+            # use default value, since group_specific_value was always == default_resource_value
+            return default_resource_value
 
     resources_replaced = {
         option: {
             system: {
                 partition: {
                     resource: {
-                        key: replace_resource(option, system, partition, resource, key)
+                        key: replace_resources(
+                            service, option, system, partition, resource, key
+                        )
                         for key in resources[system][partition][resource].keys()
                     }
                     for resource in resources[system][partition].keys()
@@ -428,15 +341,10 @@ async def get_options_form(
         for option, _systems in options.items()
     }
 
-    dropdown_lists = {
-        "options": options,
-    }
-
     return {
-        "dropdown_lists": dropdown_lists,
+        "dropdown_list": options,
         "reservations": reservations_dict,
         "resources": resources_replaced,
-        "maintenance": incidents_list,
     }
 
 
@@ -446,36 +354,68 @@ class VoException(Exception):
         super().__init__(message)
 
 
-def get_vos(auth_state, username, admin):
+def get_groups(auth_state, admin):
     custom_config = get_custom_config()
     used_authenticator = auth_state.get("oauth_user", {}).get(
         "used_authenticator_attr", "unknown"
     )
-    vo_config = custom_config.get("vos", {})
-
-    vos_with_weight = []
-    for vo_name, vo_infos in vo_config.items():
+    groups_config = custom_config.get("groups", {})
+    username = auth_state["name"]
+    groups_available = []
+    for name, infos in groups_config.items():
         if (
-            used_authenticator in vo_infos.get("authenticators", [])
-            or username in vo_infos.get("usernames", [])
-            or (admin and vo_infos.get("admin", False))
+            used_authenticator in infos.get("authenticators", [])
+            or username in infos.get("usernames", [])
+            or (admin and infos.get("admin", False))
         ):
-            vos_with_weight.append((vo_name, vo_infos.get("weight", 99)))
-    vos_with_weight.sort(key=lambda x: x[1])
+            groups_available.append((name, infos.get("weight", 99)))
+    groups_available.sort(key=lambda x: x[1])
 
-    vo_available = []
-    for x in vos_with_weight:
-        vo_available.append(x[0])
-        if vo_config.get(x[0], {}).get("exclusive", False):
-            vo_available = [x[0]]
+    groups = []
+    for x in groups_available:
+        groups.append(x[0])
+        if groups_config.get(x[0], {}).get("exclusive", False):
+            groups = [x[0]]
             break
-    if len(vo_available) == 0:
-        raise VoException(f"No vo available for user {username}")
+    if len(groups) == 0:
+        raise VoException(f"No group available for user {username}")
 
-    vo_active = auth_state.get("vo_active", None)
-    if not vo_active or vo_active not in vo_available:
-        vo_active = vo_available[0]
-    return vo_active, vo_available
+    return groups
+
+
+def get_services(auth_state, custom_config):
+    ## We want to be able to offer multiple service types.
+    ## We use all services listed in custom_config.groups.group
+    services_available = []
+    service_active = ""
+    for group in auth_state["groups"]:
+        # If a group sets a specific default_service we will use this one
+        service_active = (
+            custom_config.get("groups", {}).get(group, {}).get("default_service", "")
+        )
+        if service_active:
+            break
+        # otherwise we collect all available services
+        services_available += [
+            *custom_config.get("groups", {}).get(group, {}).get("services", {})
+        ]
+    if not service_active:
+        # if no default service is set, we remove duplicated services
+        services_available = list(set(services_available))
+        # sort them by weight
+        services_weight = [
+            (x, custom_config.get("services", {}).get("weight", 99))
+            for x in services_available
+        ]
+        services_weight.sort(key=lambda x: x[1])
+        services_available = [x[0] for x in services_weight]
+        if services_weight:
+            # and use the first service by weight
+            service_active = services_available[0]
+        else:
+            # if no services are defined in the specific groups, we just use JupyterLab.
+            service_active = "JupyterLab"
+    return service_active, services_available
 
 
 class CustomLogoutHandler(OAuthLogoutHandler):
@@ -638,10 +578,20 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         return user_info
 
     async def update_auth_state_custom_config(self, authentication, force=False):
-        last_change = os.path.getmtime(_custom_config_file)
+        update_authentication = False
+        try:
+            last_change_reservation = os.path.getmtime(_reservations_file)
+        except:
+            last_change_reservation = 0
+        try:
+            last_change_custom_config = os.path.getmtime(_custom_config_file)
+        except:
+            last_change_custom_config = 0
+
         if (
             force
-            or authentication["auth_state"].get("custom_config_update", 0) < last_change
+            or authentication["auth_state"].get("custom_config_update", 0)
+            < last_change_custom_config
         ):
             if "custom_config" not in authentication["auth_state"].keys():
                 authentication["auth_state"]["custom_config"] = {}
@@ -652,7 +602,7 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                     "services",
                     "additional_spawn_options",
                     "announcement",
-                    "vos",
+                    "groups",
                     "systems",
                 ],
             )
@@ -661,10 +611,54 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                     authentication["auth_state"]["custom_config"][key] = custom_config[
                         key
                     ]
-            authentication["auth_state"]["custom_config_update"] = last_change
+            authentication["auth_state"][
+                "custom_config_update"
+            ] = last_change_custom_config
+            authentication["auth_state"]["reservation_update"] = last_change_reservation
+
+            # Custom config update may have changed the resources we want to offer
+            hpc_list = (
+                authentication["auth_state"]
+                .get("oauth_user", {})
+                .get("hpc_infos_attribute", [])
+            )
+            authentication["auth_state"]["groups"] = get_groups(
+                authentication["auth_state"],
+                authentication.get("admin", False),
+            )
+            authentication["groups"] = authentication["auth_state"]["groups"]
+            service_active, services_available = get_services(
+                authentication["auth_state"], custom_config
+            )
+            authentication["auth_state"]["service_active"] = service_active
+            authentication["auth_state"]["services_available"] = services_available
+            authentication["auth_state"]["options_form"] = await get_options_form(
+                auth_log=self.log,
+                service=authentication["auth_state"]["service_active"],
+                groups=authentication["auth_state"]["groups"],
+                user_hpc_accounts=hpc_list,
+            )
+            update_authentication = True
+        elif (
+            authentication["auth_state"].get("reservation_update", 0)
+            < last_change_reservation
+        ):
+            hpc_list = (
+                authentication["auth_state"]
+                .get("oauth_user", {})
+                .get("hpc_infos_attribute", [])
+            )
+            authentication["auth_state"]["options_form"] = await get_options_form(
+                auth_log=self.log,
+                service=authentication["auth_state"]["service_active"],
+                groups=authentication["auth_state"]["groups"],
+                user_hpc_accounts=hpc_list,
+            )
+            authentication["auth_state"]["reservation_update"] = last_change_reservation
+            update_authentication = True
+        if update_authentication:
             return authentication
         else:
-            # User is up to date
             return True
 
     async def refresh_user(self, user, handler=None):
@@ -703,20 +697,21 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                     name = self.username_key(user_data_resp_json)
                 else:
                     name = user_data_resp_json.get(self.username_key)
-                    if not name:
-                        self.log.error(
-                            "OAuth user contains no key %s: %s",
-                            self.username_key,
-                            user_data_resp_json,
-                        )
-                        return
-
-                    if not token_resp_json.get("refresh_token", None):
-                        token_resp_json["refresh_token"] = refresh_token_save
-                    authentication["auth_state"] = self._create_auth_state(
-                        token_resp_json, user_data_resp_json
+                if not name:
+                    self.log.error(
+                        "OAuth user contains no key %s: %s",
+                        self.username_key,
+                        user_data_resp_json,
                     )
-                    ret = await self.run_post_auth_hook(handler, authentication)
+                    return
+
+                authentication["name"] = name
+                if not token_resp_json.get("refresh_token", None):
+                    token_resp_json["refresh_token"] = refresh_token_save
+                authentication["auth_state"] = self._create_auth_state(
+                    token_resp_json, user_data_resp_json
+                )
+                ret = await self.run_post_auth_hook(handler, authentication)
             except:
                 self.log.exception(
                     "Refresh of user's {name} access token failed".format(
@@ -726,7 +721,11 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                 ret = False
         else:
             # Update custom config, if neccessary
-            ret = await self.update_auth_state_custom_config(authentication)
+            try:
+                ret = await self.update_auth_state_custom_config(authentication)
+            except:
+                self.log.exception("Could not update user auth_state, log out")
+                ret = False
         return ret
 
     async def post_auth_hook(self, authenticator, handler, authentication):
@@ -768,22 +767,17 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         handler.statsd.incr(f"login.authenticator.{used_authenticator}")
         handler.statsd.incr(f"login.hpc_infos_via_unity.{hpc_infos_via_unity}")
 
-        # In this part we classify the user in specific VOs.
-        # This has to be replaced with the official JHub RBAC feature
-
-        username = authentication.get("name", "unknown")
+        authentication["auth_state"]["name"] = authentication["name"]
+        # In this part we classify the user in specific groups.
         try:
-            vo_active, vo_available = get_vos(
+            authentication["auth_state"]["groups"] = get_groups(
                 authentication["auth_state"],
-                username,
                 authentication.get("admin", False),
             )
         except VoException as e:
-            self.log.warning("Could not get vo for user - {}".format(e))
+            self.log.warning("Could not get groups for user - {}".format(e))
             raise e
-        authentication["auth_state"]["vo_active"] = vo_active
-        authentication["auth_state"]["vo_available"] = vo_available
-
+        authentication["groups"] = authentication["auth_state"]["groups"]
         # Now we collect the hpc_list information and create a useful python dict from it
         ## First let's add some "default_partitions", that should be added to each user,
         ## even if it's listed in hpc_list
@@ -799,7 +793,7 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                 partition = re.search("[^,]+,([^,]+),[^,]+,[^,]+", entry).groups()[0]
             except:
                 authenticator.log.info(
-                    f"----- {username} - Failed to check for defaults partitions: {entry} ---- {hpc_list}"
+                    f"----- {authentication['name']} - Failed to check for defaults partitions: {entry} ---- {hpc_list}"
                 )
                 continue
             if partition in default_partitions.keys():
@@ -812,10 +806,16 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                 "Added hpc infos to auth_state",
                 extra={
                     "action": "hpcaccounts",
-                    "username": username,
+                    "username": authentication["name"],
                     "hpc_list": hpc_list,
                 },
             )
+
+        service_active, services_available = get_services(
+            authentication["auth_state"], custom_config
+        )
+        authentication["auth_state"]["service_active"] = service_active
+        authentication["auth_state"]["services_available"] = services_available
 
         ## With this list we can now create the spawner.options_form value.
         ## We will store this in the auth_state instead of the Spawner:
@@ -827,15 +827,16 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
         ##   in the SpawnerClass.
         ##
 
-        ## Currently we only support JupyterLab, we have to update this in the future
-        ## if we want to support multiple services.
-        custom_config = get_custom_config()
+        try:
+            last_change_reservation = os.path.getmtime(_reservations_file)
+        except:
+            last_change_reservation = 0
+        authentication["auth_state"]["reservation_update"] = last_change_reservation
         authentication["auth_state"]["options_form"] = await get_options_form(
             auth_log=self.log,
-            service="JupyterLab",
-            vo_active="default",
+            service=authentication["auth_state"]["service_active"],
+            groups=authentication["auth_state"]["groups"],
             user_hpc_accounts=hpc_list,
-            custom_config=custom_config,
         )
 
         ## We have a few custom config features on the frontend. For this, we have to store

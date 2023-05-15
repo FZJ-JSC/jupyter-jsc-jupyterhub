@@ -8,6 +8,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_pem_x509_certificate
 from jupyterhub.apihandlers import default_handlers
 from jupyterhub.apihandlers.base import APIHandler
+from tornado.httpclient import HTTPRequest
 
 from ..misc import get_custom_config
 
@@ -72,7 +73,42 @@ class SpawnEventsUNICOREAPIHandler(APIHandler):
                     "userid": user.id,
                 },
             )
-            asyncio.create_task(spawner.stop(cancel=True))
+
+            async def get_event_and_stop():
+                # First we want to get the error msg via spawner.poll, then
+                # we will use this message as event for spawner.stop
+                url = await spawner.get_request_url_poll()
+                headers = await spawner.get_request_headers_poll()
+                req = HTTPRequest(
+                    url=url,
+                    method="GET",
+                    headers=headers,
+                    **spawner.get_request_kwargs(),
+                )
+                resp_json = await spawner.send_request(
+                    req, action="poll", raise_exception=False
+                )
+                if not resp_json:
+                    # spawner.send_request may return None
+                    resp_json = {}
+                summary = resp_json.get("details", {}).get("error", "Start failed.")
+                details = resp_json.get("details", {}).get(
+                    "detailed_error", "No details available."
+                )
+
+                def get_event(spawner):
+                    now = datetime.datetime.now().strftime("%Y_%m_%d %H:%M:%S.%f")[:-3]
+                    event = {
+                        "failed": True,
+                        "progress": 100,
+                        "html_message": f"<details><summary>{now}: {summary}</summary>{details}</details>",
+                    }
+                    return event
+
+                await spawner.stop(cancel=True, event=get_event)
+
+            if bool(spawner._spawn_pending or spawner.ready):
+                asyncio.create_task(get_event_and_stop())
         else:
             bssStatus = body.get("bssStatus", "")
             # It's in Running (UNICORE wise) state. We can now check for bssStatus to get more details

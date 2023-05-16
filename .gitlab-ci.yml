@@ -36,6 +36,7 @@ build:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64)\"}}}" > /kaniko/.docker/config.json
     - /kaniko/executor --context $CI_PROJECT_DIR --cache=true --cache-copy-layers=true --build-arg JUPYTERHUB_VERSION="${JUPYTERHUB_VERSION}" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:${LATEST_TAG} --destination ${CI_REGISTRY_IMAGE}:${LATEST_TAG}${CI_COMMIT_SHORT_SHA}
+    - /kaniko/executor --context $CI_PROJECT_DIR --cache=true --cache-copy-layers=true --build-arg JUPYTERHUB_VERSION="4.0.0" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:${LATEST_TAG}${CI_COMMIT_SHORT_SHA}4.0.0
   rules:
     - if: $BUILD_COMMIT_SHORT == "True"
 
@@ -49,6 +50,7 @@ build-devel:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64)\"}}}" > /kaniko/.docker/config.json
     - /kaniko/executor --context $CI_PROJECT_DIR --cache=true --cache-copy-layers=true --dockerfile ${CI_PROJECT_DIR}/devel/Dockerfile --build-arg JUPYTERHUB_VERSION="${JUPYTERHUB_VERSION}" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:devel --destination ${CI_REGISTRY_IMAGE}:devel${CI_COMMIT_SHORT_SHA}
+    - /kaniko/executor --context $CI_PROJECT_DIR --cache=true --cache-copy-layers=true --dockerfile ${CI_PROJECT_DIR}/devel/Dockerfile --build-arg JUPYTERHUB_VERSION="4.0.0" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:devel${CI_COMMIT_SHORT_SHA}4.0.0
   rules:
     - if: $BUILD_DEVEL == "True"
 

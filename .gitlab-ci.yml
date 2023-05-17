@@ -1,8 +1,6 @@
 stages:
   - build
-  - build2
   - build-devel
-  - build-devel2
   - build-tag
 
 workflow:
@@ -25,8 +23,7 @@ workflow:
 
 
 variables:
-  JUPYTERHUB_VERSION: "3.1.1"
-  JUPYTERHUB_VERSION2: "4.0.0"
+  JUPYTERHUB_VERSION: "4.0.0"
   K8S_HUB_VERSION: "2.0.0"
 
 build:
@@ -42,19 +39,6 @@ build:
   rules:
     - if: $BUILD_COMMIT_SHORT == "True"
 
-build2:
-  # when: manual
-  stage: build2
-  image:
-    name: gcr.io/kaniko-project/executor:debug
-    entrypoint: [""]
-  script:
-    - mkdir -p /kaniko/.docker
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64)\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context $CI_PROJECT_DIR --build-arg JUPYTERHUB_VERSION="${JUPYTERHUB_VERSION2}" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:${LATEST_TAG}${CI_COMMIT_SHORT_SHA}${JUPYTERHUB_VERSION2}
-  rules:
-    - if: $BUILD_COMMIT_SHORT == "True"
-
 build-devel:
   # when: manual
   stage: build-devel
@@ -65,19 +49,6 @@ build-devel:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64)\"}}}" > /kaniko/.docker/config.json
     - /kaniko/executor --context $CI_PROJECT_DIR --cache=true --cache-copy-layers=true --dockerfile ${CI_PROJECT_DIR}/devel/Dockerfile --build-arg JUPYTERHUB_VERSION="${JUPYTERHUB_VERSION}" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:devel --destination ${CI_REGISTRY_IMAGE}:devel${CI_COMMIT_SHORT_SHA}
-  rules:
-    - if: $BUILD_DEVEL == "True"
-
-build-devel2:
-  # when: manual
-  stage: build-devel2
-  image:
-    name: gcr.io/kaniko-project/executor:debug
-    entrypoint: [""]
-  script:
-    - mkdir -p /kaniko/.docker
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64)\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile ${CI_PROJECT_DIR}/devel/Dockerfile --build-arg JUPYTERHUB_VERSION="${JUPYTERHUB_VERSION2}" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:devel${CI_COMMIT_SHORT_SHA}${JUPYTERHUB_VERSION2}
   rules:
     - if: $BUILD_DEVEL == "True"
 

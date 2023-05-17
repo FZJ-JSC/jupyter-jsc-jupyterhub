@@ -285,8 +285,10 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
 
     if not options:
         return {
-            "options": {},
             "message": f"The groups does not support {service} services.",
+            "dropdown_list": {},
+            "resources": {},
+            "reservations": {},
         }
 
     def replace_resources(service, option, system, partition, resource, key):

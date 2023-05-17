@@ -14,6 +14,9 @@ from ..misc import get_custom_config
 
 
 class SpawnEventsUNICOREAPIHandler(APIHandler):
+    def check_xsrf_cookie(self):
+        pass
+
     async def post(self, user_name, server_name=""):
         user = self.find_user(user_name)
         if user is None:

@@ -39,6 +39,9 @@ class HPCAccountUpdatesORM(Base):
 
 
 class HPCUpdateAPIHandler(APIHandler):
+    def check_xsrf_cookie(self):
+        pass
+
     # Might want to define a more restrictive custom scope once available
     @needs_scope("admin:users")
     async def post(self, username):

@@ -30,6 +30,9 @@ def get_config():
 
 
 class JHubLogLevelAPIHandler(APIHandler):
+    def check_xsrf_cookie(self):
+        pass
+
     def is_valid_config(
         self, data, name, valid_values, handler=None, case_sensitive=True
     ):

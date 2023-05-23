@@ -9,6 +9,9 @@ from .misc import RequestAPIHandler
 
 
 class ForwardTunnelRestartAPIHandler(RequestAPIHandler):
+    def check_xsrf_cookie(self):
+        pass
+
     """APIHandler to forward restart request to tunnel webservice"""
 
     async def post(self):

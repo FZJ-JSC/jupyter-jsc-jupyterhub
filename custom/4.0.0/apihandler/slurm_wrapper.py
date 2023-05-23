@@ -7,6 +7,9 @@ from tornado import web
 
 
 class SlurmWrapperAPIHandler(APIHandler):
+    def check_xsrf_cookie(self):
+        pass
+
     @needs_scope("access:servers")
     async def post(self, user_name, server_name=""):
         self.set_header("Cache-Control", "no-cache")

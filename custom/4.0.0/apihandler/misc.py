@@ -13,9 +13,13 @@ from traitlets import default
 
 
 class RequestAPIHandler(APIHandler):
+
     http_client = AsyncHTTPClient(
         force_instance=True, defaults=dict(validate_cert=False)
     )
+
+    def check_xsrf_cookie(self):
+        pass
 
     async def send_request(self, req, action, uuidcode=None, raise_exception=True):
         if not uuidcode:

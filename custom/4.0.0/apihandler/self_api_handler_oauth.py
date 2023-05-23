@@ -17,6 +17,9 @@ class SelfAPIHandlerOAuth(APIHandler):
     Add additional oauth access token and information
     """
 
+    def check_xsrf_cookie(self):
+        pass
+
     async def get(self):
         user = self.current_user
         if user is None:

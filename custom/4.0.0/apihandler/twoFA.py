@@ -18,6 +18,9 @@ from .utils.twoFA_unity import delete_user_2fa
 
 
 class TwoFAAPIHandler(APIHandler):
+    def check_xsrf_cookie(self):
+        pass
+
     @web.authenticated
     async def post(self):
         user = self.current_user

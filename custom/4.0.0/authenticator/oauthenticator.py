@@ -238,7 +238,7 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
 
                 # Do the same for accounts, what we did for the systems before
                 accounts = get_allowed_values(
-                    option_config, "accounts", accounts_default[system]
+                    option_config, "accounts", accounts_default.get(system, [])
                 )
 
                 for account in accounts:

@@ -1,0 +1,4 @@
+jsonformatter==0.3.1
+jupyterhub-backendspawner==0.3.1
+oauthenticator==14.2.0
+# nodeenv==1.6.0

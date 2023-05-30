@@ -1,6 +1,6 @@
 #ARG JUPYTERHUB_VERSION=2.1.1
 #FROM jupyterhub/jupyterhub:${JUPYTERHUB_VERSION}
-ARG K8S_HUB_VERSION=1.2.0
+ARG K8S_HUB_VERSION=2.0.0
 FROM jupyterhub/k8s-hub:${K8S_HUB_VERSION}
 # FROM keyword removes all ARG definitions
 ARG JUPYTERHUB_VERSION=2.1.1
@@ -14,9 +14,14 @@ RUN apt-get update && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Add requirements
+COPY --chown=jovyan:users ./requirements.txt /tmp/requirements.txt
+RUN /usr/local/bin/pip3 install -r /tmp/requirements.txt
+
 # Add custom files
-COPY --chown=jovyan:users ./custom/${JUPYTERHUB_VERSION} /src/jupyterhub-custom
-RUN pip3 install -r /src/jupyterhub-custom/requirements.txt
+RUN mkdir -p /src/jupyterhub-custom
+COPY --chown=jovyan:users ./custom/${JUPYTERHUB_VERSION} /src/jupyterhub-custom/jsc_custom
+RUN /usr/local/bin/pip3 install -r /src/jupyterhub-custom/jsc_custom/requirements.txt
 
 # Install patches for specific JupyterHub Version
 RUN apt update && \

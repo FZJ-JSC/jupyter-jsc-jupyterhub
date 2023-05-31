@@ -34,57 +34,68 @@ class SpawnOptionsFormAPIHandler(APIHandler):
             raise web.HTTPError(404)
 
         # Collect information from Spawner object
-        spawner = user.spawners[server_name]
-        service_type = spawner.user_options.get(
-            "service", "JupyterLab/JupyterLab"
-        ).split("/")[1]
-        system = spawner.user_options.get("system")
-        account = spawner.user_options.get("account")
-        interactive_partitions = (
-            get_custom_config()
-            .get("systems", {})
-            .get(system, {})
-            .get("interactive_partitions", [])
-        )
-        tmp = await spawner.get_options_form()
+        # spawner = user.spawners[server_name]
+        # service_type = spawner.user_options.get(
+        #     "service", "JupyterLab/JupyterLab"
+        # ).split("/")[1]
+        # system = spawner.user_options.get("system")
+        # account = spawner.user_options.get("account")
+        # interactive_partitions = (
+        #     get_custom_config()
+        #     .get("systems", {})
+        #     .get(system, {})
+        #     .get("interactive_partitions", [])
+        # )
+        # tmp = auth_state.get("options_form", {})
+        # tmp = await spawner.get_options_form()
+        # if type(tmp) == str:
+        #     self.log.info(tmp)
 
-        # Restructure options form to account+system specific output (defined by spawner.user_options)
-        ret = {
-            "dropdown_lists": {"projects": [], "partitions": {}, "reservations": {}},
-            "resources": {},
-        }
+        # # Restructure options form to account+system specific output (defined by spawner.user_options)
+        # ret = {
+        #     "dropdown_lists": {"projects": [], "partitions": {}, "reservations": {}},
+        #     "resources": {},
+        # }
 
-        # fill in return dict
-        # Skip projects which only have interactive partitions, these are useless for slurm jobs
-        projects = []
-        # ret["dropdown_lists"]["projects"] = tmp.get("dropdown_lists", {}).get("projects", {}).get(system, {}).get(account, [])
+        # # fill in return dict
+        # # Skip projects which only have interactive partitions, these are useless for slurm jobs
+        # projects = []
+        # # ret["dropdown_lists"]["projects"] = tmp.get("dropdown_lists", {}).get("projects", {}).get(system, {}).get(account, [])
 
-        # skip all interactive_partitions
-        all_partitions = (
-            tmp.get("dropdown_lists", {})
-            .get("partitions", {})
-            .get(system, {})
-            .get(account, {})
+        # # skip all interactive_partitions
+        # all_partitions = (
+        #     tmp.get("dropdown_lists", {})
+        #     .get(service, {})
+        #     .get(system, {})
+        #     .get(account, {})
+        #     .get(project, {})
+        # )
+        # for project in list(all_partitions.keys()):
+        #     batch_partitions = [
+        #         x
+        #         for x in all_partitions.get(project, [])
+        #         if x not in interactive_partitions
+        #     ]
+        #     if len(batch_partitions) > 0:
+        #         projects.append(project)
+        #         ret["dropdown_lists"]["partitions"][project] = batch_partitions
+        # ret["dropdown_lists"]["projects"] = projects
+        # ret["dropdown_lists"]["reservations"] = (
+        #     tmp.get("dropdown_lists", {})
+        #     .get("reservations", {})
+        #     .get(system, {})
+        #     .get(account, {})
+        # )
+        # ret["resources"] = (
+        #     tmp.get("resources", {}).get(service_type, {}).get(system, {})
+        # )
+        auth_state = await user.get_auth_state()
+        ret = {}
+        ret["dropdown_lists"] = auth_state.get("options_form", {}).get(
+            "dropdown_lists", {}
         )
-        for project in list(all_partitions.keys()):
-            batch_partitions = [
-                x
-                for x in all_partitions.get(project, [])
-                if x not in interactive_partitions
-            ]
-            if len(batch_partitions) > 0:
-                projects.append(project)
-                ret["dropdown_lists"]["partitions"][project] = batch_partitions
-        ret["dropdown_lists"]["projects"] = projects
-        ret["dropdown_lists"]["reservations"] = (
-            tmp.get("dropdown_lists", {})
-            .get("reservations", {})
-            .get(system, {})
-            .get(account, {})
-        )
-        ret["resources"] = (
-            tmp.get("resources", {}).get(service_type, {}).get(system, {})
-        )
+        ret["resources"] = auth_state.get("options_form", {}).get("resources", {})
+        ret["reservations"] = auth_state.get("options_form", {}).get("reservations", {})
         self.write(json.dumps(ret))
 
 

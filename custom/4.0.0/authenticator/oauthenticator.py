@@ -236,6 +236,18 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
                 if system in incidents_list:
                     continue
 
+                # if not HPC system: add it
+                if (
+                    custom_config.get("systems", {})
+                    .get(system, {})
+                    .get("drf-service", "")
+                    != "unicoremgr"
+                ):
+                    if option not in options.keys():
+                        options[option] = {}
+                    if system not in options[option].keys():
+                        options[option][system] = {}
+
                 # Do the same for accounts, what we did for the systems before
                 accounts = get_allowed_values(
                     option_config, "accounts", accounts_default.get(system, [])
@@ -273,15 +285,6 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
                             options[option][system][account][project][
                                 partition
                             ] = reservations
-
-            for system in systems:
-                if option not in options.keys():
-                    options[option] = {}
-                if (
-                    system not in options[option].keys()
-                    and system not in incidents_list
-                ):
-                    options[option][system] = {}
 
     if not options:
         return {

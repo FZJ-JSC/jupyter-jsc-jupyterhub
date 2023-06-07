@@ -107,7 +107,6 @@ def create_logging_handler(config, handler_name, **configuration):
     configuration_copy = copy.deepcopy(configuration)
 
     formatter_name = configuration.pop("formatter")
-    formatter_name = "json"
     level = get_level(configuration.pop("level"))
 
     # catch some special cases

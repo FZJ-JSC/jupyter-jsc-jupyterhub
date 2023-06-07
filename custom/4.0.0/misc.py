@@ -22,6 +22,11 @@ def get_custom_config():
                 ret = json.load(f)
             _custom_config_last_update = last_change
             _custom_config_cache = ret
+
+            from .logs.extra_handlers import create_extra_handlers
+
+            app_log.debug("Update Logger")
+            create_extra_handlers()
     except:
         app_log.exception("Could not load custom config file")
     else:

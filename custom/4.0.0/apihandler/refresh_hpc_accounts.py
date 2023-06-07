@@ -1,4 +1,5 @@
 import ast
+import os
 import re
 from datetime import datetime
 from datetime import timezone
@@ -43,9 +44,29 @@ class HPCUpdateAPIHandler(APIHandler):
         pass
 
     # Might want to define a more restrictive custom scope once available
-    @needs_scope("admin:users")
     async def post(self, username):
-
+        try:
+            shared_secret = os.environ.get("HPC_UPDATE_SECRET", None)
+            auth_header = self.request.headers.get("Authorization", "").split()
+            # Shared secret required
+            # Authorization header in form 'token <shared_secret>' required
+            if (
+                not shared_secret
+                or len(auth_header) < 2
+                or auth_header[1] != shared_secret
+                or auth_header[0] != "token"
+            ):
+                self.log.warning(
+                    "Update HPC Infos not allowed, please check script and shared secret"
+                )
+                self.set_status(403)
+                return
+        except:
+            self.log.exception(
+                "Update HPC Infos not allowed, please check script and shared secret"
+            )
+            self.set_status(403)
+            return
         # Update database whenever this is called
         # This way we can check, if the cronjob on UNICORE site is still running
         HPCAccountUpdatesORM.update(self.db)
@@ -58,6 +79,8 @@ class HPCUpdateAPIHandler(APIHandler):
         if auth_state and "oauth_user" in auth_state.keys():
             # User is logged in
             body = self.get_json_body()
+            if not body:
+                body = {}
             if type(body) == str:
                 body = ast.literal_eval(body)
             # test if it's just one string
@@ -75,7 +98,8 @@ class HPCUpdateAPIHandler(APIHandler):
                                 ",{},".format(value),
                             )
                         )
-            body.extend(to_add)
+            if to_add:
+                body.extend(to_add)
             if body:
                 auth_state["oauth_user"]["hpc_infos_attribute"] = body
             else:

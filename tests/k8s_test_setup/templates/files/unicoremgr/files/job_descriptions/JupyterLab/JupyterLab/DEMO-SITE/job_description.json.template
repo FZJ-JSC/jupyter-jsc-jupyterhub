@@ -1,7 +1,0 @@
-{
-    "ApplicationName": "Bash shell",
-    "Arguments": [
-        "start.sh"
-    ],
-    "Executable": "/bin/bash"
-}

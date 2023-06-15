@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: userhome-quota-default
-  namespace: <NAMESPACE>
-data:
-  DISK_USAGE_MAX: "21474836480"
-  DISK_USAGE_WARNING: "16106127360"

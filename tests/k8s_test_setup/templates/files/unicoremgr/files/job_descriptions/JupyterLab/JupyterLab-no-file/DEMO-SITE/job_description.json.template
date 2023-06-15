@@ -1,7 +1,0 @@
-{
-    "ApplicationName": "Bash shell",
-    "Arguments": [
-        "start_not_exists.sh"
-    ],
-    "Executable": "/bin/bash"
-}

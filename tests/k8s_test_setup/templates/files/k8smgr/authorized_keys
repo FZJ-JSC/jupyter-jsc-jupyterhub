@@ -1,4 +1,0 @@
-no-pty,no-X11-forwarding,no-agent-forwarding,command="/bin/echo No commands allowed" <TUNNEL_PUBLIC_KEY>
-no-pty,no-X11-forwarding,no-agent-forwarding,no-port-forwarding,command="/bin/bash ~k8smgr/.ssh/manage_tunnel.sh -a $(/bin/echo $SSH_ORIGINAL_COMMAND | sha512sum | cut -d \" \" -f 1) < /dev/null > /dev/null 2>&1" <REMOTE_PUBLIC_KEY>
-# Devel
-<DEVEL_PUBLIC_KEY>

@@ -1,2 +1,0 @@
-# DemoSite
-restrict,port-forwarding,command="/bin/echo No commands allowed" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBLDBd49ae8rXQATGu3+Uq+RHck73E8h2Rc6OqnfDOo4

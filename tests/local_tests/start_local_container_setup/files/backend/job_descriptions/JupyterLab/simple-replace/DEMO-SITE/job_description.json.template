@@ -1,7 +1,0 @@
-{
-    "ApplicationName": "Bash shell",
-    "Arguments": [
-        "Hello World on <system> - <env_REPLACE_ME>"
-    ],
-    "Executable": "/bin/echo"
-}

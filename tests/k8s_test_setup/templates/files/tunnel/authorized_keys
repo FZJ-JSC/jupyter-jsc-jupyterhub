@@ -1,4 +1,0 @@
-# DemoSite
-restrict,port-forwarding,command="/bin/echo No commands allowed" <LJUPYTER_PUBLIC_KEY>
-restrict,port-forwarding,command="/bin/echo No commands allowed" <K8SMGR_PUBLIC_KEY>
-<DEVEL_PUBLIC_KEY>

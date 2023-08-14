@@ -19,6 +19,7 @@ from traitlets import Unicode
 from traitlets import Union
 
 from ..misc import _custom_config_file
+from ..misc import _incidents_file
 from ..misc import _reservations_file
 from ..misc import get_custom_config
 from ..misc import get_incidents
@@ -158,7 +159,7 @@ async def get_options_form(auth_log, service, groups, user_hpc_accounts):
     resources = custom_config.get("resources")
 
     incidents_dict = get_incidents()
-    threshold_health = incidents_dict.get("threshold", 0)
+    threshold_health = incidents_dict.get("interactive_threshold", 50)
     systems_list = [*custom_config.get("systems", {})]
     incidents_list = [
         x
@@ -579,18 +580,24 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
     async def update_auth_state_custom_config(self, authentication, force=False):
         update_authentication = False
         try:
-            last_change_reservation = os.path.getmtime(_reservations_file)
-        except:
-            last_change_reservation = 0
-        try:
             last_change_custom_config = os.path.getmtime(_custom_config_file)
         except:
             last_change_custom_config = 0
+        try:
+            last_change_incidents = os.path.getmtime(_incidents_file)
+        except:
+            last_change_incidents = 0
+        try:
+            last_change_reservation = os.path.getmtime(_reservations_file)
+        except:
+            last_change_reservation = 0
 
         if (
             force
             or authentication["auth_state"].get("custom_config_update", 0)
             < last_change_custom_config
+            or authentication["auth_state"].get("incidents_update", 0)
+            < last_change_incidents
         ):
             if "custom_config" not in authentication["auth_state"].keys():
                 authentication["auth_state"]["custom_config"] = {}
@@ -610,9 +617,8 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                     authentication["auth_state"]["custom_config"][key] = custom_config[
                         key
                     ]
-            authentication["auth_state"][
-                "custom_config_update"
-            ] = last_change_custom_config
+            authentication["auth_state"]["custom_config_update"] = last_change_custom_config
+            authentication["auth_state"]["incidents_update"] = last_change_incidents
             authentication["auth_state"]["reservation_update"] = last_change_reservation
 
             # Custom config update may have changed the resources we want to offer

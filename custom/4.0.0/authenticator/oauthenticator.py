@@ -58,17 +58,18 @@ def get_system_infos(
     user_hpc_list = [x for x in user_hpc_list_incl_empty if x]
 
     systems_config = custom_config.get("systems")
-    # Sort UNICORE systems first
-    systems_all = list(
-        sorted(
-            {group[1] for group in user_hpc_list if group[1] is not None},
-            key=lambda system: systems_config.get(system, {}).get("weight", 99),
-        )
-    )
+    # Add UNICORE systems
+    systems_all = [group[1] for group in user_hpc_list if group[1] is not None and group[1] in systems_config.keys()]
+
     # Then add K8s systems
     for system, config in systems_config.items():
         if system not in systems_all and config.get("drf-service", "") != "unicoremgr":
             systems_all.append(system)
+
+    # sort all systems with weight
+    systems_all = sorted(
+        systems_all, key=lambda system: systems_config.get(system, {}).get("weight", 99)
+    )
 
     # Remove systems which are in maintenance
     systems = [x for x in systems_all if x not in incidents_list]

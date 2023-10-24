@@ -59,7 +59,11 @@ def get_system_infos(
 
     systems_config = custom_config.get("systems")
     # Add UNICORE systems
-    systems_all = [group[1] for group in user_hpc_list if group[1] is not None and group[1] in systems_config.keys()]
+    systems_all = [
+        group[1]
+        for group in user_hpc_list
+        if group[1] is not None and group[1] in systems_config.keys()
+    ]
 
     # Then add K8s systems
     for system, config in systems_config.items():
@@ -618,7 +622,9 @@ class CustomGenericOAuthenticator(GenericOAuthenticator):
                     authentication["auth_state"]["custom_config"][key] = custom_config[
                         key
                     ]
-            authentication["auth_state"]["custom_config_update"] = last_change_custom_config
+            authentication["auth_state"][
+                "custom_config_update"
+            ] = last_change_custom_config
             authentication["auth_state"]["incidents_update"] = last_change_incidents
             authentication["auth_state"]["reservation_update"] = last_change_reservation
 

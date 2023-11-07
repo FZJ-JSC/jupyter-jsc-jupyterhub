@@ -17,7 +17,7 @@ workflow:
 
 
 variables:
-  JUPYTERHUB_VERSION: "4.0.0"
+  JUPYTERHUB_VERSION: "4.0.2"
   K8S_HUB_VERSION: "2.0.0"
 
 build:

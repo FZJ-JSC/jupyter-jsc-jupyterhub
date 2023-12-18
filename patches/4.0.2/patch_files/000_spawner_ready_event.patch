@@ -1,0 +1,91 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2023-05-15 10:02:53.838533346 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2023-05-17 14:46:56.942007851 +0200
+@@ -2,6 +2,7 @@
+ # Copyright (c) Jupyter Development Team.
+ # Distributed under the terms of the Modified BSD License.
+ import asyncio
++import inspect
+ import json
+ from datetime import datetime, timedelta, timezone
+ 
+@@ -710,19 +711,31 @@
+         # - spawner not running at all
+         # - spawner failed
+         # - spawner pending start (what we expect)
+-        url = url_path_join(user.url, url_escape_path(server_name), '/')
+-        ready_event = {
+-            'progress': 100,
+-            'ready': True,
+-            'message': f"Server ready at {url}",
+-            'html_message': 'Server ready at <a href="{0}">{0}</a>'.format(url),
+-            'url': url,
+-        }
+         failed_event = {'progress': 100, 'failed': True, 'message': "Spawn failed"}
+ 
++        async def get_ready_event():
++            url = url_path_join(user.url, url_escape_path(server_name), '/')
++            ready_event = original_ready_event = {
++                'progress': 100,
++                'ready': True,
++                'message': f"Server ready at {url}",
++                'html_message': 'Server ready at <a href="{0}">{0}</a>'.format(url),
++                'url': url,
++            }
++            if spawner.progress_ready_hook:
++                try:
++                    ready_event = spawner.progress_ready_hook(spawner, ready_event)
++                    if inspect.isawaitable(ready_event):
++                        ready_event = await ready_event
++                except Exception as e:
++                    self.log.exception(f"Error in ready_event hook: {e}")
++                    ready_event = original_ready_event
++            return ready_event
++
+         if spawner.ready:
+             # spawner already ready. Trigger progress-completion immediately
+             self.log.info("Server %s is already started", spawner._log_name)
++            ready_event = await get_ready_event()
+             await self.send_event(ready_event)
+             return
+ 
+@@ -766,6 +779,7 @@
+         if spawner.ready:
+             # spawner is ready, signal completion and redirect
+             self.log.info("Server %s is ready", spawner._log_name)
++            ready_event = await get_ready_event()
+             await self.send_event(ready_event)
+         else:
+             # what happened? Maybe spawn failed?
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/spawner.py ../jupyterhub-patched/jupyterhub/spawner.py
+--- ../jupyterhub/jupyterhub/spawner.py	2023-05-15 10:02:59.088532712 +0200
++++ ../jupyterhub-patched/jupyterhub/spawner.py	2023-05-17 14:47:35.272000044 +0200
+@@ -840,6 +840,28 @@
+         """,
+     ).tag(config=True)
+ 
++    progress_ready_hook = Any(
++        help="""
++        An optional hook function that you can implement to modify the
++        ready event, which will be shown to the user once a service
++        is ready.
++
++        This can be set independent of any concrete spawner implementation.
++
++        This maybe a coroutine.
++
++        Example::
++
++            from subprocess import check_call
++            async def my_ready_hook(spawner, ready_event):
++                ready_event["html_message"] = f"Server {spawner.name} is ready for {spawner.user.name}"
++                return ready_event
++
++            c.Spawner.progress_ready_hook = my_ready_hook
++
++        """
++    ).tag(config=True)
++
+     pre_spawn_hook = Any(
+         help="""
+         An optional hook function that you can implement to do some

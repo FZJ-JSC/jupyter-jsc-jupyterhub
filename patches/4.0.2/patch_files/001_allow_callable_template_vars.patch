@@ -1,0 +1,15 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
+--- ../jupyterhub/jupyterhub/handlers/base.py	2024-03-01 18:30:41.810646692 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2024-03-01 18:33:47.120642512 +0100
+@@ -1304,7 +1304,10 @@
+             xsrf=self.xsrf_token.decode('ascii'),
+         )
+         if self.settings['template_vars']:
+-            ns.update(self.settings['template_vars'])
++            for key, value in self.settings['template_vars'].items():
++                if callable(value):
++                    value = value()
++                ns[key] = value
+         return ns
+ 
+     def get_accessible_services(self, user):

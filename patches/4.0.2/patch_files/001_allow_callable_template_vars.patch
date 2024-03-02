@@ -1,14 +1,25 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2024-03-01 18:30:41.810646692 +0100
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2024-03-01 18:33:47.120642512 +0100
-@@ -1304,7 +1304,10 @@
+--- ../jupyterhub/jupyterhub/handlers/base.py	2024-03-02 21:40:39.388436637 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2024-03-02 21:43:30.298430251 +0100
+@@ -11,6 +11,7 @@
+ import uuid
+ import warnings
+ from datetime import datetime, timedelta
++from inspect import signature
+ from http.client import responses
+ from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
+ 
+@@ -1304,7 +1305,13 @@
              xsrf=self.xsrf_token.decode('ascii'),
          )
          if self.settings['template_vars']:
 -            ns.update(self.settings['template_vars'])
 +            for key, value in self.settings['template_vars'].items():
 +                if callable(value):
-+                    value = value()
++                    if len(signature(value).parameters.keys()) == 1:
++                        value = value(user)
++                    else:
++                        value = value()
 +                ns[key] = value
          return ns
  

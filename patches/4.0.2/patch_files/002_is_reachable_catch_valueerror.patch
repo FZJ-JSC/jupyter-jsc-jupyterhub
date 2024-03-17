@@ -1,0 +1,12 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/utils.py ../jupyterhub-patched/jupyterhub/utils.py
+--- ../jupyterhub/jupyterhub/utils.py	2024-03-02 21:40:39.398436637 +0100
++++ ../jupyterhub-patched/jupyterhub/utils.py	2024-03-17 14:14:13.810557047 +0100
+@@ -284,6 +284,8 @@
+                 errno.ECONNRESET,
+             }:
+                 app_log.warning("Failed to connect to %s (%s)", url, e)
++        except ValueError as e:
++            app_log.warning("Error while waiting for server %s (%s)", url, e)
+         return False
+ 
+     re = await exponential_backoff(

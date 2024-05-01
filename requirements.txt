@@ -1,2 +1,6 @@
+jupyter-jsc-custom
+jupyterhub-forwardbasespawner
+jupyterhub-outpostspawner
+jupyterhub-unicorespawner
 kubernetes
 m2crypto

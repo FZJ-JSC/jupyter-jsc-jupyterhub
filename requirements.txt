@@ -1,6 +1,6 @@
-jupyter-jsc-custom
-jupyterhub-forwardbasespawner
-jupyterhub-outpostspawner
-jupyterhub-unicorespawner
+jupyter-jsc-custom==0.10.6
+jupyterhub-forwardbasespawner==1.0.0
+jupyterhub-outpostspawner==1.0.0
+jupyterhub-unicorespawner==1.0.0
 kubernetes
 m2crypto

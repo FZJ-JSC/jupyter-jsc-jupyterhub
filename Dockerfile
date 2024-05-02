@@ -9,6 +9,20 @@ RUN apt-get update && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Install patches for specific JupyterHub Version
+RUN apt update && \
+    apt install git && \
+    git clone -b ${JUPYTERHUB_VERSION} https://github.com/jupyterhub/jupyterhub.git /src/jupyterhub && \
+    rm -rf /src/jupyterhub/.git* && \
+    apt remove -y git && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    chown -R jovyan:users /src/jupyterhub
+
+COPY --chown=jovyan:users ./patches/patch_files /src/patches/patch_files
+COPY --chown=jovyan:users ./patches/install_patches.sh /src/patches/install_patches.sh
+RUN /src/patches/install_patches.sh
+
 # Add requirements
 COPY --chown=jovyan:users ./requirements.txt /tmp/requirements.txt
 RUN /usr/local/bin/pip3 install -r /tmp/requirements.txt

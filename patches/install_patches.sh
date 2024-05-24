@@ -1,5 +1,5 @@
 #!/bin/sh
-for f in `ls /src/patches/${JUPYTERHUB_VERSION}/patch_files/*.patch`
+for f in `ls /src/patches/patch_files/*.patch`
 do
     echo "Apply patch $(basename $f)"
     patch -d /src/ -p1 < $f

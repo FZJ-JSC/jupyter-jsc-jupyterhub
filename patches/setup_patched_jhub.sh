@@ -17,7 +17,7 @@ if [[ -d ${DIR}/${1}/jupyterhub-patched ]]; then
 fi
 git clone -b ${1} https://github.com/jupyterhub/jupyterhub.git ${DIR}/${1}/jupyterhub
 
-for f in `ls ${DIR}/${1}/patch_files/*.patch`
+for f in `ls ${DIR}/patch_files/*.patch`
 do
     PATCHNAME=$(basename $f)
     echo $PATCHNAME

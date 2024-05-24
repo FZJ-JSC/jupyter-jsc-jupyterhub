@@ -1,27 +1,7 @@
 stages:
   - build
-  - build-devel
-  - build-tag
 
-workflow:
-  rules:
-    - if: $CI_COMMIT_BRANCH != "main"
-      variables:
-        BUILD_COMMIT_SHORT: "True"
-        LATEST_TAG: "dev"
-    - if: $CI_COMMIT_TAG
-      variables:
-        BUILD_COMMIT_SHORT: "False"
-        LATEST_TAG: "latest"
-    - when: never
-
-
-variables:
-  JUPYTERHUB_VERSION: "4.0.2"
-  K8S_HUB_VERSION: "2.0.0"
-
-build:
-  # when: manual
+build-devel:
   stage: build
   image:
     name: gcr.io/kaniko-project/executor:debug
@@ -29,29 +9,19 @@ build:
   script:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64)\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context $CI_PROJECT_DIR --cache=true --cache-copy-layers=true --build-arg JUPYTERHUB_VERSION="${JUPYTERHUB_VERSION}" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:${LATEST_TAG} --destination ${CI_REGISTRY_IMAGE}:${LATEST_TAG}${CI_COMMIT_SHORT_SHA}
+    - /kaniko/executor --context $CI_PROJECT_DIR --cache=true --cache-copy-layers=true --dockerfile ${CI_PROJECT_DIR}/devel/Dockerfile --destination ${CI_REGISTRY_IMAGE}:devel --destination ${CI_REGISTRY_IMAGE}:devel${CI_COMMIT_SHORT_SHA}
   rules:
-    - if: $BUILD_COMMIT_SHORT == "True"
-
-build-devel:
-  # when: manual
-  stage: build-devel
-  image:
-    name: gcr.io/kaniko-project/executor:debug
-    entrypoint: [""]
-  script:
-    - mkdir -p /kaniko/.docker
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64)\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context $CI_PROJECT_DIR --cache=true --cache-copy-layers=true --dockerfile ${CI_PROJECT_DIR}/devel/Dockerfile --build-arg JUPYTERHUB_VERSION="${JUPYTERHUB_VERSION}" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:devel --destination ${CI_REGISTRY_IMAGE}:devel${CI_COMMIT_SHORT_SHA}
+    - when: manual
+  allow_failure: true
 
 build-tag:
-  stage: build-tag
+  stage: build
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   script:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64)\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context $CI_PROJECT_DIR --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} --build-arg JUPYTERHUB_VERSION="${JUPYTERHUB_VERSION}" --build-arg K8S_HUB_VERSION="${K8S_HUB_VERSION}" --destination ${CI_REGISTRY_IMAGE}:latest
+    - /kaniko/executor --context $CI_PROJECT_DIR --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} --destination ${CI_REGISTRY_IMAGE}:latest
   rules:
     - if: $CI_COMMIT_TAG

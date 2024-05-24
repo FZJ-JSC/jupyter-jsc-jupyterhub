@@ -1,6 +1,6 @@
-ARG K8S_HUB_VERSION=3.1.0
-FROM jupyterhub/k8s-hub:${K8S_HUB_VERSION}
-ARG JUPYTERHUB_VERSION=4.0.0
+ARG K8S_HUB_VERSION=3.3.7
+FROM jupyterhub/k8s-hub-slim:${K8S_HUB_VERSION}
+ARG JUPYTERHUB_VERSION=4.1.5
 ENV JUPYTERHUB_VERSION=$JUPYTERHUB_VERSION
 
 USER root
@@ -15,11 +15,6 @@ RUN apt-get update && \
 COPY --chown=jovyan:users ./requirements.txt /tmp/requirements.txt
 RUN /usr/local/bin/pip3 install -r /tmp/requirements.txt
 
-# Add custom files
-RUN mkdir -p /src/jupyterhub-custom
-COPY --chown=jovyan:users ./custom/${JUPYTERHUB_VERSION} /src/jupyterhub-custom/jsc_custom
-RUN /usr/local/bin/pip3 install -r /src/jupyterhub-custom/jsc_custom/requirements.txt
-
 # Install patches for specific JupyterHub Version
 RUN apt update && \
     apt install git && \
@@ -29,12 +24,9 @@ RUN apt update && \
     apt clean && \
     rm -rf /var/lib/apt/lists/* && \
     chown -R jovyan:users /src/jupyterhub
-    
-COPY --chown=jovyan:users ./patches/${JUPYTERHUB_VERSION}/patch_files /src/patches/${JUPYTERHUB_VERSION}/patch_files
+
+COPY --chown=jovyan:users ./patches/patch_files /src/patches/patch_files
 COPY --chown=jovyan:users ./patches/install_patches.sh /src/patches/install_patches.sh
 RUN /src/patches/install_patches.sh
 
-# Add entrypoint
-COPY --chown=jovyan:users ./entrypoint.sh /src/.
 USER jovyan
-ENTRYPOINT ["/src/entrypoint.sh"]

@@ -1,4 +1,4 @@
-jupyter-jsc-custom==0.10.8
+jupyter-jsc-custom==0.10.9
 jupyterhub-forwardbasespawner==1.0.3
 jupyterhub-outpostspawner==1.0.0
 jupyterhub-unicorespawner==1.0.0

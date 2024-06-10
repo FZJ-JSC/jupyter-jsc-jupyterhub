@@ -1,5 +1,5 @@
-ARG K8S_HUB_VERSION=3.3.7
-FROM jupyterhub/k8s-hub:${K8S_HUB_VERSION}
+ARG JUPYTERHUB_VERSION=4.1.5
+ENV JUPYTERHUB_VERSION=$JUPYTERHUB_VERSION
 
 USER root
 
@@ -9,10 +9,9 @@ RUN apt-get update && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY devel/requirements_build.txt /tmp/requirements_build.txt
-RUN /usr/local/bin/pip3 install -r /tmp/requirements_build.txt
-
 # Add requirements
+COPY --chown=jovyan:users devel/requirements_build.txt /tmp/requirements_build.txt
+RUN /usr/local/bin/pip3 install -r /tmp/requirements_build.txt
 COPY --chown=jovyan:users ./requirements.txt /tmp/requirements.txt
 RUN /usr/local/bin/pip3 install -r /tmp/requirements.txt
 
@@ -26,7 +25,7 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/* && \
     chown -R jovyan:users /src/jupyterhub
     
-COPY --chown=jovyan:users ./patches/${JUPYTERHUB_VERSION}/patch_files /src/patches/${JUPYTERHUB_VERSION}/patch_files
+COPY --chown=jovyan:users ./patches/patch_files /src/patches/patch_files
 COPY --chown=jovyan:users ./patches/install_patches.sh /src/patches/install_patches.sh
 RUN /src/patches/install_patches.sh
 

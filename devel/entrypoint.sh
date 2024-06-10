@@ -1,6 +1,4 @@
 #!/bin/bash
-export PYTHONPATH=${PYTHONPATH}:/src/jupyterhub:/src/jupyterhub-custom
-
 USERNAME=jovyan
 
 mkdir -p /home/${USERNAME}/.ssh

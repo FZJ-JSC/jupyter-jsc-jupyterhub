@@ -1,15 +1,7 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/apihandlers/users.py ../jupyterhub-patched/jupyterhub/apihandlers/users.py
---- ../jupyterhub/jupyterhub/apihandlers/users.py	2023-05-15 10:02:53.838533346 +0200
-+++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2023-05-17 14:46:56.942007851 +0200
-@@ -2,6 +2,7 @@
- # Copyright (c) Jupyter Development Team.
- # Distributed under the terms of the Modified BSD License.
- import asyncio
-+import inspect
- import json
- from datetime import datetime, timedelta, timezone
- 
-@@ -710,19 +711,31 @@
+--- ../jupyterhub/jupyterhub/apihandlers/users.py	2024-10-16 14:54:28.959584711 +0200
++++ ../jupyterhub-patched/jupyterhub/apihandlers/users.py	2024-10-16 15:02:28.659425893 +0200
+@@ -734,19 +734,31 @@
          # - spawner not running at all
          # - spawner failed
          # - spawner pending start (what we expect)
@@ -49,7 +41,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
              await self.send_event(ready_event)
              return
  
-@@ -766,6 +779,7 @@
+@@ -790,6 +802,7 @@
          if spawner.ready:
              # spawner is ready, signal completion and redirect
              self.log.info("Server %s is ready", spawner._log_name)
@@ -58,8 +50,8 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          else:
              # what happened? Maybe spawn failed?
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/spawner.py ../jupyterhub-patched/jupyterhub/spawner.py
---- ../jupyterhub/jupyterhub/spawner.py	2023-05-15 10:02:59.088532712 +0200
-+++ ../jupyterhub-patched/jupyterhub/spawner.py	2023-05-17 14:47:35.272000044 +0200
+--- ../jupyterhub/jupyterhub/spawner.py	2024-10-16 14:54:28.959584711 +0200
++++ ../jupyterhub-patched/jupyterhub/spawner.py	2024-10-16 15:03:30.219409107 +0200
 @@ -840,6 +840,28 @@
          """,
      ).tag(config=True)

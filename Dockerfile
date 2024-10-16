@@ -30,3 +30,5 @@ COPY --chown=jovyan:users ./patches/install_patches.sh /src/patches/install_patc
 RUN /src/patches/install_patches.sh
 
 USER jovyan
+
+CMD jupyterhub -f /usr/local/etc/jupyterhub/jupyterhub_config.py

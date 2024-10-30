@@ -1,6 +1,6 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2024-10-16 14:54:28.959584711 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2024-10-16 15:08:18.319304929 +0200
+--- ../jupyterhub/jupyterhub/handlers/base.py	2024-10-30 20:42:03.754905945 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2024-10-30 20:48:28.794776223 +0100
 @@ -1404,7 +1404,10 @@
              xsrf=self.xsrf_token.decode('ascii'),
          )

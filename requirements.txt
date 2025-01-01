@@ -1,5 +1,5 @@
-jupyter-jsc-custom==0.11.9
-jupyterhub-forwardbasespawner==1.0.7
+jupyter-jsc-custom==0.11.10
+jupyterhub-forwardbasespawner==1.0.8
 jupyterhub-outpostspawner==1.0.3
 jupyterhub-unicorespawner==1.0.3
 kubernetes==30.1.0

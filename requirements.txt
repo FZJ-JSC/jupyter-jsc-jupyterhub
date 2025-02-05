@@ -1,8 +1,9 @@
-jupyter-jsc-custom==0.11.10
-jupyterhub-forwardbasespawner==1.0.8
-jupyterhub-outpostspawner==1.0.3
+jupyterhub==4.1.6
+jupyter-jsc-custom==0.12.0
+jupyterhub-forwardbasespawner==1.1.3
+jupyterhub-outpostspawner==1.1.0
 jupyterhub-unicorespawner==1.0.3
 kubernetes==30.1.0
 m2crypto==0.43.0
-oauthenticator>=17.1.0
+oauthenticator>=17.3.0
 pyunicore==1.2.0

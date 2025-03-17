@@ -1,5 +1,5 @@
 jupyterhub==4.1.6
-jupyter-jsc-custom==0.12.19
+jupyter-jsc-custom==0.12.20
 jupyterhub-forwardbasespawner==1.1.3
 jupyterhub-outpostspawner==1.1.2
 jupyterhub-unicorespawner==1.1.0

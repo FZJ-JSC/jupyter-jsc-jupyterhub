@@ -2,8 +2,6 @@ stages:
   - build
 
 build-devel:
-
-build:
   stage: build
   image: moby/buildkit:rootless
   variables:

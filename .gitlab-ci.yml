@@ -8,21 +8,9 @@ build-devel:
     # Authenticate to your registry
     - mkdir -p ~/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json
-
-    # Start buildkit daemon (classic rootful mode)
     - buildkitd &
-
-    # Give it a second to initialize
     - sleep 5
-
-    # Build & push with caching
-    - buildctl build \
-        --frontend dockerfile.v0 \
-        --local context=${CI_PROJECT_DIR} \
-        --local dockerfile=${CI_PROJECT_DIR}/devel \
-        --export-cache type=registry,ref=${CACHE_IMAGE},mode=max \
-        --import-cache type=registry,ref=${CACHE_IMAGE} \
-        --output type=image,name=${CI_REGISTRY_IMAGE}:devel,push=true
+    - buildctl build --frontend dockerfile.v0 --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR}/devel --export-cache type=registry,ref=${CACHE_IMAGE},mode=max --import-cache type=registry,ref=${CACHE_IMAGE} --output type=image,name=${CI_REGISTRY_IMAGE}:devel,push=true
   rules:
     - when: manual
   allow_failure: true

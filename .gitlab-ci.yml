@@ -4,6 +4,8 @@ stages:
 build-devel:
   stage: build
   image: moby/buildkit:latest
+  variables:
+    CACHE_IMAGE: "$CI_REGISTRY_IMAGE:buildcache"
   script:
     - mkdir -p ~/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json

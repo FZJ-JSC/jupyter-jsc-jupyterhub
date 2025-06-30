@@ -2,14 +2,17 @@ stages:
   - build
 
 build-devel:
+
+build:
   stage: build
-  image:
-    name: gcr.io/kaniko-project/executor:debug
-    entrypoint: [""]
+  image: moby/buildkit:rootless
+  variables:
+    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
   script:
-    - mkdir -p /kaniko/.docker
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64)\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context $CI_PROJECT_DIR --cache=true --cache-copy-layers=true --dockerfile ${CI_PROJECT_DIR}/devel/Dockerfile --destination ${CI_REGISTRY_IMAGE}:devel --destination ${CI_REGISTRY_IMAGE}:devel${CI_COMMIT_SHORT_SHA}
+    - mkdir -p ~/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json
+    - buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR}/devel/Dockerfile --output type=image,name=${CI_REGISTRY_IMAGE}:devel,push=true
+    - buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR}/devel/Dockerfile --output type=image,name=${CI_REGISTRY_IMAGE}:devel${CI_COMMIT_SHORT_SHA},push=true
   rules:
     - when: manual
   allow_failure: true

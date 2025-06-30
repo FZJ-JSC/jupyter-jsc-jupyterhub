@@ -4,6 +4,7 @@ stages:
 build-devel:
   stage: build
   image: moby/buildkit:latest
+  script:
     - mkdir -p ~/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json
     - buildctl-daemonless.sh build --export-cache type=registry,ref=$CACHE_IMAGE --import-cache type=registry,ref=$CACHE_IMAGE --frontend dockerfile.v0 --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR}/devel/Dockerfile --output type=image,name=${CI_REGISTRY_IMAGE}:devel,push=true

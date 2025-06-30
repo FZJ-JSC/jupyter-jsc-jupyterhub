@@ -6,6 +6,7 @@ build-devel:
   image: moby/buildkit:latest
   variables:
     CACHE_IMAGE: "$CI_REGISTRY_IMAGE:buildcache"
+    BUILDKITD_FLAGS: --oci-worker=false --containerd-worker=true
     BUILDKIT_WORKER: containerd
   script:
     - mkdir -p ~/.docker

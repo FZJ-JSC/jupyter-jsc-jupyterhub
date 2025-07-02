@@ -27,9 +27,9 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/* && \
     chown -R jovyan:users /src/jupyterhub
     
-#COPY --chown=jovyan:users ./patches/patch_files /src/patches/patch_files
-#COPY --chown=jovyan:users ./patches/install_patches.sh /src/patches/install_patches.sh
-#RUN /src/patches/install_patches.sh
+COPY --chown=jovyan:users ./patches/patch_files /src/patches/patch_files
+COPY --chown=jovyan:users ./patches/install_patches.sh /src/patches/install_patches.sh
+RUN /src/patches/install_patches.sh
 
 # Add entrypoint
 COPY --chown=jovyan:users devel/entrypoint.sh /src/.

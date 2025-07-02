@@ -4,12 +4,14 @@ stages:
 build-devel:
   stage: build
   image: moby/buildkit:latest
+  variables:
+    CACHE_IMAGE: "$CI_REGISTRY_IMAGE:buildcache"
   script:
     # Authenticate to your registry
     - mkdir -p ~/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json
     - buildkitd &
-    - sleep 5
+    - sleep 1800
     - buildctl build --frontend dockerfile.v0 --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR}/devel --export-cache type=registry,ref=${CACHE_IMAGE},mode=max --import-cache type=registry,ref=${CACHE_IMAGE} --output type=image,name=${CI_REGISTRY_IMAGE}:devel,push=true
   rules:
     - when: manual

@@ -10,7 +10,7 @@ build-devel:
     # Authenticate to your registry
     - mkdir -p ~/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json
-    - buildkitd
+    - buildkitd &
     - sleep 5
     - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR}/devel/ --output type=image,name=${CI_REGISTRY_IMAGE}:devel,push=true
   rules:

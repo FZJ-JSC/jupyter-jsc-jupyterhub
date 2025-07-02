@@ -3,16 +3,16 @@ stages:
 
 build-devel:
   stage: build
-  image: moby/buildkit:rootless
+  image: moby/buildkit:latest
   variables:
-    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
     CACHE_IMAGE: "$CI_REGISTRY_IMAGE:buildcache"
   script:
     # Authenticate to your registry
     - mkdir -p ~/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json
-    - sleep 1800
-    - buildctl-daemonless.sh build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR}/devel/ --output type=image,name=${CI_REGISTRY_IMAGE}:devel,push=true
+    - buildkitd
+    - sleep 5
+    - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR}/devel/ --output type=image,name=${CI_REGISTRY_IMAGE}:devel,push=true
   rules:
     - when: manual
   allow_failure: true

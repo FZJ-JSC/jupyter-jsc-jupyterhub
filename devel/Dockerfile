@@ -33,5 +33,6 @@ RUN /src/patches/install_patches.sh
 
 # Add entrypoint
 COPY --chown=jovyan:users devel/entrypoint.sh /src/.
-USER root
+RUN chown -R jovyan:users /home/jovyan
+USER jovyan
 ENTRYPOINT ["/src/entrypoint.sh"]

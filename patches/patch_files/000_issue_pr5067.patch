@@ -1,5 +1,5 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/auth.py ../jupyterhub-patched/jupyterhub/auth.py
---- ../jupyterhub/jupyterhub/auth.py	2025-07-02 15:29:54.193214964 +0200
+--- ../jupyterhub/jupyterhub/auth.py	2025-08-12 10:58:05.213494740 +0200
 +++ ../jupyterhub-patched/jupyterhub/auth.py	2025-07-02 14:02:38.813642996 +0200
 @@ -106,6 +106,19 @@
          """,
@@ -22,19 +22,24 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          help="""
          Set of users that will be granted admin rights on this JupyterHub.
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2025-07-02 15:29:54.194214971 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2025-07-02 14:02:56.361800801 +0200
-@@ -1326,6 +1326,14 @@
+--- ../jupyterhub/jupyterhub/handlers/base.py	2025-08-12 10:58:08.842557380 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2025-08-12 10:59:16.377690125 +0200
+@@ -1326,6 +1326,19 @@
          spawner = user.spawners[server_name]
          if spawner.pending:
              raise RuntimeError(f"{spawner._log_name} pending {spawner.pending}")
 +
-+        if self.authenticator.refresh_pre_stop:
++          if self.authenticator.refresh_pre_stop:
 +            auth_user = await self.refresh_auth(user, force=True)
 +            if auth_user is None:
-+                raise web.HTTPError(
-+                    403, "auth has expired for %s, login again", user.name
-+                )
++                if self.current_user.name == user.name:
++                    raise web.HTTPError(
++                        403, "auth has expired for %s, login again", user.name
++                    )
++                else:
++                    self.log.warning(
++                        "User %s may have stale auth info. Stopping anyway.", user.name
++                    )
 +
          # set user._stop_pending before doing anything async
          # to avoid races

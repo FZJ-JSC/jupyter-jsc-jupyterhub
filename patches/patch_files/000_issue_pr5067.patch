@@ -29,7 +29,7 @@ diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhu
          if spawner.pending:
              raise RuntimeError(f"{spawner._log_name} pending {spawner.pending}")
 +
-+          if self.authenticator.refresh_pre_stop:
++        if self.authenticator.refresh_pre_stop:
 +            auth_user = await self.refresh_auth(user, force=True)
 +            if auth_user is None:
 +                if self.current_user.name == user.name:

@@ -1,0 +1,57 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/proxy.py ../jupyterhub-patched/jupyterhub/proxy.py
+--- ../jupyterhub/jupyterhub/proxy.py	2025-07-02 15:29:54.195214978 +0200
++++ ../jupyterhub-patched/jupyterhub/proxy.py	2025-10-01 15:29:19.864791449 +0200
+@@ -616,6 +616,14 @@
+                 f"{self.__class__.__name__}.auth_token or CONFIGPROXY_AUTH_TOKEN env is required"
+                 " if Proxy.should_start is False"
+             )
++        # use pycurl by default, if available:
++        try:
++            AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
++        except ImportError as e:
++            self.log.debug(
++                "Could not load pycurl: %s\npycurl is recommended if you have a large number of users.",
++                e,
++            )
+ 
+     def _check_previous_process(self):
+         """Check if there's a process leftover and shut it down if so"""
+@@ -922,6 +930,30 @@
+ 
+         if isinstance(body, dict):
+             body = json.dumps(body)
++        
++        cert_kwargs = {}
++        if self.app.internal_ssl:
++            if client.__class__.__name__ == "CurlAsyncHTTPClient":
++                cert_kwargs = {
++                    "ca_certs": self.app.internal_ssl_ca,
++                    "client_cert": self.app.internal_ssl_cert,
++                    "client_key": self.app.internal_ssl_key,
++                    "validate_cert": False
++                }
++            elif client.__class__.__name__ == "SimpleAsyncHTTPClient":
++                import ssl
++                ssl_ctx = ssl.create_default_context(
++                    cafile=self.app.internal_ssl_ca
++                )
++                ssl_ctx.check_hostname = False
++                ssl_ctx.load_cert_chain(
++                    certfile=self.app.internal_ssl_cert,
++                    keyfile=self.app.internal_ssl_key,
++                )
++                cert_kwargs = {
++                    "ssl_options": ssl_ctx
++                }
++        
+         self.log.debug("Proxy: Fetching %s %s", method, url)
+         req = HTTPRequest(
+             url,
+@@ -930,6 +962,7 @@
+             body=body,
+             connect_timeout=3,  # default: 20s
+             request_timeout=10,  # default: 20s
++            **cert_kwargs
+         )
+ 
+         async def _wait_for_api_request():

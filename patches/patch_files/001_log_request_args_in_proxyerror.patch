@@ -1,7 +1,7 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/pages.py ../jupyterhub-patched/jupyterhub/handlers/pages.py
---- ../jupyterhub/jupyterhub/handlers/pages.py	2025-07-02 15:29:54.195214978 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2025-10-01 15:32:51.489288951 +0200
-@@ -698,7 +698,8 @@
+--- ../jupyterhub/jupyterhub/handlers/pages.py	2025-10-07 16:23:32.723938573 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2025-10-07 16:26:10.783151905 +0200
+@@ -739,7 +739,8 @@
          try:
              html = await self.render_template(f'{status_code}.html', **ns)
          except TemplateNotFound:

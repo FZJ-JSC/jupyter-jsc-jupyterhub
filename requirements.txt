@@ -1,9 +1,9 @@
-jupyterhub==5.4.0
-jupyter-jsc-custom==2.1.2
-jupyterhub-forwardbasespawner==2.0.1
+jupyterhub==5.4.2
+jupyter-jsc-custom==2.3.0
+jupyterhub-forwardbasespawner==2.1.0
 jupyterhub-outpostspawner==2.1.0
-jupyterhub-unicorespawner==2.0.1
-jupyterhub-traefik-proxy[redis]==2.1.0
+jupyterhub-unicorespawner==2.1.0
+jupyterhub-traefik-proxy[etcd]==2.1.0
 kubernetes==33.1.0
 m2crypto==0.46.2
 oauthenticator>=17.3.0

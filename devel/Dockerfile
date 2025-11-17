@@ -21,16 +21,13 @@ RUN /usr/local/bin/pip3 install -r /tmp/requirements.txt
 RUN apt update && \
     apt install git && \
     git clone -b ${JUPYTERHUB_VERSION} https://github.com/jupyterhub/jupyterhub.git /src/jupyterhub && \
-    git clone -b 2.1.0 https://github.com/jupyterhub/traefik-proxy.git /src/traefik-proxy && \
     rm -rf /src/jupyterhub/.git* && \
     apt remove -y git && \
     apt clean && \
     rm -rf /var/lib/apt/lists/* && \
-    chown -R jovyan:users /src/jupyterhub && \
-    chown -R jovyan:users /src/traefik-proxy
+    chown -R jovyan:users /src/jupyterhub
     
 COPY --chown=jovyan:users ./patches/patch_files /src/patches/patch_files
-COPY --chown=jovyan:users ./patches/patch_files_traefik /src/patches/patch_files_traefik
 COPY --chown=jovyan:users ./patches/install_patches.sh /src/patches/install_patches.sh
 RUN /src/patches/install_patches.sh
 

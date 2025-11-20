@@ -3,7 +3,7 @@ jupyter-jsc-custom==2.3.2
 jupyterhub-forwardbasespawner==2.1.0
 jupyterhub-outpostspawner==2.1.0
 jupyterhub-unicorespawner==2.1.0
-jupyterhub-credit-server=0.2.2
+jupyterhub-credit-server==0.2.2
 kubernetes==33.1.0
 m2crypto==0.46.2
 oauthenticator>=17.3.0

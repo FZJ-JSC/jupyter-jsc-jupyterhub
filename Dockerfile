@@ -1,4 +1,4 @@
-ARG K8S_HUB_VERSION=4.2.0
+ARG K8S_HUB_VERSION=4.3.1
 FROM jupyterhub/k8s-hub-slim:${K8S_HUB_VERSION}
 ARG JUPYTERHUB_VERSION=5.4.2
 ENV JUPYTERHUB_VERSION=$JUPYTERHUB_VERSION
@@ -25,9 +25,9 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/* && \
     chown -R jovyan:users /src/jupyterhub
 
-COPY --chown=jovyan:users ./patches/patch_files /src/patches/patch_files
-COPY --chown=jovyan:users ./patches/install_patches.sh /src/patches/install_patches.sh
-RUN /src/patches/install_patches.sh
+# COPY --chown=jovyan:users ./patches/patch_files /src/patches/patch_files
+# COPY --chown=jovyan:users ./patches/install_patches.sh /src/patches/install_patches.sh
+# RUN /src/patches/install_patches.sh
 
 USER jovyan
 

@@ -17,7 +17,7 @@ RUN /usr/local/bin/pip3 install -r /tmp/requirements.txt
 
 # Install patches for specific JupyterHub Version
 RUN apt update && \
-    apt install git && \
+    apt install -yq git && \
     git clone -b ${JUPYTERHUB_VERSION} https://github.com/jupyterhub/jupyterhub.git /src/jupyterhub && \
     rm -rf /src/jupyterhub/.git* && \
     apt remove -y git && \

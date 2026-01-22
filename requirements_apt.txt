@@ -5,6 +5,7 @@ locales
 nodejs
 npm
 openssh-client
+procps
 python3-dev
 python3-pip
 python3-pycurl

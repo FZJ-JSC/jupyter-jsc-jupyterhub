@@ -1,7 +1,7 @@
 jupyterhub==5.4.3
 jupyter-jsc-custom==2.3.28
 jupyterhub-forwardbasespawner==2.1.1
-jupyterhub-outpostspawner==2.1.3
+jupyterhub-outpostspawner==2.2.0a2
 jupyterhub-unicorespawner==2.1.1
 jupyterhub-credit-service==0.3.11
 kubernetes==33.1.0

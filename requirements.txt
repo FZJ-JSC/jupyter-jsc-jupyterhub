@@ -4,6 +4,7 @@ jupyterhub-forwardbasespawner==2.1.1
 jupyterhub-outpostspawner==2.2.2
 jupyterhub-unicorespawner==2.1.1
 jupyterhub-credit-service==0.3.11
+httpx==0.28.1
 kubernetes==33.1.0
 m2crypto==0.46.2
 oauthenticator>=17.3.0

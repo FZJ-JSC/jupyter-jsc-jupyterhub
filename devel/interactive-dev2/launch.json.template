@@ -1,0 +1,40 @@
+{
+  "version": "1.4.2",
+  "configurations": [
+    {
+      "name": "JupyterHub",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/usr/local/bin/jupyterhub",
+      "args": [
+        "-f",
+        "/home/jovyan/jupyterhub-config/jupyterhub_config.py"
+      ],
+      "env": {
+        "CRYPT_KEY": "06e35ed347ec42859d52198b1773af86",
+        "PYTHONPATH": "/src/jupyterhub-patched:/src/jupyterhub-custom",
+        "KUBERNETES_SERVICE_HOST": "<KUBERNETES_SERVICE_HOST>",
+        "KUBERNETES_SERVICE_PORT": "<KUBERNETES_SERVICE_PORT>",
+        "RESERVATIONS_FILE": "/home/jupyterhub/reservations.json",
+        "MAINTENANCE_FILE": "/mnt/shared-data/maintenance-check/maintenance.json",
+        "PROXY_API_SERVICE_HOST": "<PROXY_API_SERVICE_HOST>",
+        "PROXY_API_SERVICE_PORT": "<PROXY_API_SERVICE_PORT>",
+        "HUB_SERVICE_PORT": "<HUB_SERVICE_PORT>",
+        "OAUTH_CLIENT_SECRET": "<OAUTH_CLIENT_SECRET>",
+        "OAUTH_CLIENT_ID": "<OAUTH_CLIENT_ID>",
+        "SQL_PASSWORD": "<SQL_PASSWORD>",
+        "SQL_DATABASE": "<SQL_DATABASE>",
+        "SQL_HOST": "<SQL_HOST>",
+        "SQL_PORT": "<SQL_PORT>",
+        "SQL_USER": "<SQL_USER>",
+        "POD_NAMESPACE": "<NAMESPACE>",
+        "JUPYTERHUB_APP": "<APP>",
+        "CONFIGPROXY_AUTH_TOKEN": "<CONFIGPROXY_AUTH_TOKEN>",
+        "JUPYTERHUB_HOSTNAME": "<HOSTNAME>",
+        "HELM_RELEASE_NAME": "<APP>",
+      },
+      "preLaunchTask": "delete-tmp-internal-ssl",
+      "justMyCode": false
+    }
+  ]
+}

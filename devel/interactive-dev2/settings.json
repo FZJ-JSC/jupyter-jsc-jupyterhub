@@ -1,0 +1,12 @@
+{
+  "python.defaultInterpreterPath": "/usr/local/bin/python3",
+  "python.formatting.provider": "black",
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true
+  },
+  "python.analysis.extraPaths": [
+    "/src/jupyterhub-patched",
+    "/src/jupyterhub-custom"
+  ]
+}

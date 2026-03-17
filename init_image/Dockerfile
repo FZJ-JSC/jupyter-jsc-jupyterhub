@@ -11,8 +11,3 @@ RUN pip install --prefix=/install \
     aiohttp \
     python-dateutil \
     pyyaml
-
-# ---- Final hardened image ----
-FROM dhi.io/python:3.13-alpine3.23
-
-COPY --from=builder /install /usr/local

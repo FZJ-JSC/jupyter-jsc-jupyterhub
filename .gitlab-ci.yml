@@ -28,7 +28,7 @@ build-init:
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"},\"dhi.io\":{\"username\":\"$CI_REGISTRY_DOCKERHUB_USER\",\"password\":\"$CI_REGISTRY_DOCKERHUB_PASSWORD\"}}}" > ~/.docker/config.json
     - buildkitd &
     - sleep 5
-    - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR}/init_image/ --output type=image,name=${CI_REGISTRY_IMAGE}:init-${CI_COMMIT_SHORT_SHA},push=true
+    - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR}/init_image --local dockerfile=${CI_PROJECT_DIR}/init_image/ --output type=image,name=${CI_REGISTRY_IMAGE}:init-${CI_COMMIT_SHORT_SHA},push=true
   rules:
     - when: manual
   allow_failure: true

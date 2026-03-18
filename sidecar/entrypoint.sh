@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 if [[ $INIT_CONTAINER == "true" ]]; then
     echo "Running initialization script once..."
     python3 -u /internal_ssl.py
@@ -23,7 +23,7 @@ elif [[ $CHECK_LIVENESS == "true" ]]; then
 elif [[ $DIND_CHECK_LIVENESS == "true" ]]; then
     echo "Running sidecar script in loop to check dind liveness..."
     /bin/bash /dind_check_liveness.sh
-elif [[ $RESTART_HUB == "true"]]; then
+elif [[ $RESTART_HUB == "true" ]]; then
     echo "Running script to restart the hub..."
     /bin/bash restart_hub.sh
 elif [[ $RESTART_HUB_INIT == "true" ]]; then

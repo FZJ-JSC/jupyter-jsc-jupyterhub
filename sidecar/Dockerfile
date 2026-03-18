@@ -5,7 +5,7 @@ RUN apk add --no-cache \
     postgresql-client \
     build-base libffi-dev openssl-dev
 
-RUN pip install --prefix=/install \
+RUN pip install --prefix=/usr/local \
     jupyterhub \
     kubernetes==33.1.0 \
     aiohttp \
@@ -13,7 +13,13 @@ RUN pip install --prefix=/install \
     pyyaml
 
 FROM dhi.io/python:3.13-alpine3.23
-COPY --from=builder /install /usr/local
+
+# Copy packages from builder
+COPY --from=builder /usr/local /usr/local
+COPY --from=builder /bin/sh /bin/sh
+COPY --from=builder /bin/bash /bin/bash
+COPY --from=builder /usr/bin /usr/bin
+
 COPY internal_ssl.py /internal_ssl.py
 COPY check_frontend_files.sh /check_frontend_files.sh
 COPY check_incidents_reservations.py /check_incidents_reservations.py
@@ -24,4 +30,7 @@ COPY restart_hub_init.sh /restart_hub_init.sh
 COPY collect_metrics.sh /collect_metrics.sh
 COPY collect_user_kpi.sh /collect_user_kpi.sh
 COPY entrypoint.sh /entrypoint.sh
-CMD ["/bin/bash", "/entrypoint.sh"]
+
+# RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

@@ -23,3 +23,5 @@ COPY restart_hub.sh /restart_hub.sh
 COPY restart_hub_init.sh /restart_hub_init.sh
 COPY collect_metrics.sh /collect_metrics.sh
 COPY collect_user_kpi.sh /collect_user_kpi.sh
+COPY entrypoint.sh /entrypoint.sh
+CMD ["/bin/bash", "/entrypoint.sh"]

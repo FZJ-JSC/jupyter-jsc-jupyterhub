@@ -1,0 +1,5 @@
+jupyterhub==5.4.3
+kubernetes==33.1.0
+aiohttp==3.13.3
+python-dateutil==2.9.0.post0
+pyyaml==6.0.3

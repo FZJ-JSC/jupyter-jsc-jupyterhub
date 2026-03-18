@@ -1,24 +1,10 @@
-FROM python:3.13-alpine3.23 as builder
+FROM python:3.13-alpine3.23
 
-RUN apk add --no-cache \
-    bash coreutils curl git kubectl openssh \
-    postgresql-client \
-    build-base libffi-dev openssl-dev
+COPY requirements_apk.txt /tmp/requirements_apk.txt
+RUN apk update && xargs -a /tmp/requirements_apk.txt apk add --no-cache
 
-RUN pip install --prefix=/usr/local \
-    jupyterhub \
-    kubernetes==33.1.0 \
-    aiohttp \
-    python-dateutil \
-    pyyaml
-
-FROM dhi.io/python:3.13-alpine3.23
-
-# Copy packages from builder
-COPY --from=builder /usr/local /usr/local
-COPY --from=builder /bin/sh /bin/sh
-COPY --from=builder /bin/bash /bin/bash
-COPY --from=builder /usr/bin /usr/bin
+COPY requirements_pip.txt /tmp/requirements_pip.txt
+RUN python3 -m pip install --upgrade pip && python3 -m pip install -r /tmp/requirements_pip.txt
 
 COPY internal_ssl.py /internal_ssl.py
 COPY check_frontend_files.sh /check_frontend_files.sh
@@ -31,6 +17,6 @@ COPY collect_metrics.sh /collect_metrics.sh
 COPY collect_user_kpi.sh /collect_user_kpi.sh
 COPY entrypoint.sh /entrypoint.sh
 
-# RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

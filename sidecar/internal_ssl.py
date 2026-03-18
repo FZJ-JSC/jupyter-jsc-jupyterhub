@@ -14,7 +14,7 @@ v1 = client.CoreV1Api()
 v1custom = client.CustomObjectsApi()
 internal_certs_location = "/mnt/persistent/internal-ssl"
 secret_name = "internal-ssl"
-namespace = os.getenv("POD_NAMESPACE", "default")
+namespace = os.getenv("HUB_NAMESPACE", "default")
 hub_name = os.getenv("HUB_NAME", "jupyterhub")
 hub_hostname = os.getenv("HUB_HOSTNAME", "hub")
 

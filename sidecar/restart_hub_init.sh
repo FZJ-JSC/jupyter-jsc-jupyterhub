@@ -6,4 +6,3 @@ if [[ -n ${GIT_USERNAME} && -n ${GIT_PASSWORD} ]]; then
 else
     git clone --single-branch --branch ${GIT_BRANCH:-main} https://${GIT_REPO_SHORT} static-files
 fi
-chown -R 65532:65532 static-files

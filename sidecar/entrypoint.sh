@@ -13,7 +13,7 @@ if [[ $INIT_CONTAINER == "true" ]]; then
     python3 -u /check_incidents_reservations.py 0
 elif [[ $CHECK_FRONTEND_FILES == "true" ]]; then
     echo "Running sidecar script in loop to check for frontend updates..."
-    /bin/bash /mnt/check_frontend_files/..data/run.sh
+    /bin/bash /check_frontend_files.sh
 elif [[ $CHECK_INCIDENTS_RESERVATIONS == "true" ]]; then
     echo "Running sidecar script in loop to check for incidents and reservations updates..."
     python3 -u /check_incidents_reservations.py ${CHECK_INTERVAL:-60}

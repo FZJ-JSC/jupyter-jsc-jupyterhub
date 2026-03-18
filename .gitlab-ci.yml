@@ -28,7 +28,7 @@ build-sidecar:
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"},\"dhi.io\":{\"username\":\"$CI_REGISTRY_DOCKERHUB_USER\",\"password\":\"$CI_REGISTRY_DOCKERHUB_PASSWORD\"}}}" > ~/.docker/config.json
     - buildkitd &
     - sleep 5
-    - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR}/sidecar --local dockerfile=${CI_PROJECT_DIR}/sidecar/ --output type=image,name=${CI_REGISTRY_IMAGE}:sidecar-${CI_COMMIT_SHORT_SHA},push=true
+    - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR}/sidecar --local dockerfile=${CI_PROJECT_DIR}/sidecar/ --output type=image,name=${CI_REGISTRY_IMAGE}:sidecar-${CI_COMMIT_SHORT_SHA},push=true --output type=image,name=${CI_REGISTRY_IMAGE}:sidecar-latest,push=true
   rules:
     - when: manual
   allow_failure: true

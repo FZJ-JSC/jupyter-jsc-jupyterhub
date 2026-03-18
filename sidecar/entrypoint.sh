@@ -17,4 +17,25 @@ elif [[ $CHECK_FRONTEND_FILES == "true" ]]; then
 elif [[ $CHECK_INCIDENTS_RESERVATIONS == "true" ]]; then
     echo "Running sidecar script in loop to check for incidents and reservations updates..."
     python3 -u /check_incidents_reservations.py ${CHECK_INTERVAL:-60}
+elif [[ $CHECK_LIVENESS == "true" ]]; then
+    echo "Running sidecar script in loop to check hub liveness..."
+    /bin/bash /check_liveness.sh
+elif [[ $DIND_CHECK_LIVENESS == "true" ]]; then
+    echo "Running sidecar script in loop to check dind liveness..."
+    /bin/bash /dind_check_liveness.sh
+elif [[ $RESTART_HUB == "true"]]; then
+    echo "Running script to restart the hub..."
+    /bin/bash restart_hub.sh
+elif [[ $RESTART_HUB_INIT == "true" ]]; then
+    echo "Running initialization script to restart the hub and pull static files from git..."
+    /bin/bash restart_hub_init.sh
+elif [[ $RUN_METRICS == "true" ]]; then
+    echo "Running script to collect and expose custom metrics..."
+    /bin/bash collect_metrics.sh
+elif [[ $RUN_USER_KPI == "true" ]]; then
+    echo "Running script to collect and expose user KPI metrics..."
+    /bin/bash collect_user_kpi.sh
+else
+    echo "No valid mode specified. Exiting."
+    exit 1
 fi

@@ -1,8 +1,8 @@
-jupyterhub==5.4.3
-jupyter-jsc-custom==2.4.3
+jupyterhub==5.4.4
+jupyter-jsc-custom==2.4.4rc4
 jupyterhub-forwardbasespawner==2.1.2
 jupyterhub-outpostspawner==2.2.6
-jupyterhub-unicorespawner==2.1.1
+jupyterhub-unicorespawner==2.1.5
 jupyterhub-credit-service==0.3.11
 httpx==0.28.1
 kubernetes==33.1.0

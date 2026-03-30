@@ -1,8 +1,8 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2025-11-27 09:28:41.243251451 +0100
-+++ ../jupyterhub-patched/jupyterhub/app.py	2025-11-15 12:36:33.343486870 +0100
-@@ -3730,7 +3730,7 @@
-         # start the webserver without tls
+--- ../jupyterhub/jupyterhub/app.py	2026-03-30 15:22:32.422275881 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2026-03-30 15:24:13.013648243 +0200
+@@ -3735,7 +3735,7 @@
+         # start the webserver
          self.http_server = tornado.httpserver.HTTPServer(
              self.tornado_application,
 -            ssl_options=ssl_context,

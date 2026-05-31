@@ -1,5 +1,8 @@
-jupyterhub==5.4.3
+jupyterhub==5.4.6
 kubernetes==33.1.0
-aiohttp==3.13.3
+aiohttp==3.13.5
 python-dateutil==2.9.0.post0
 pyyaml==6.0.3
+Mako==1.3.12
+urllib3==2.7.0
+idna==3.15

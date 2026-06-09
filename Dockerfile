@@ -13,7 +13,7 @@ RUN apt-get update && \
 
 # Add requirements
 COPY --chown=jovyan:users ./requirements.txt /tmp/requirements.txt
-RUN /usr/local/bin/pip3 install -r /tmp/requirements.txt
+RUN /usr/local/bin/python3 -m pip install --upgrade pip && /usr/local/bin/pip3 install -r /tmp/requirements.txt
 
 # Install patches for specific JupyterHub Version
 RUN apt update && \

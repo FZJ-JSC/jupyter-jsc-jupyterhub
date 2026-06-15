@@ -1,5 +1,5 @@
 jupyterhub==5.4.6
-jupyter-jsc-custom==2.4.4
+jupyter-jsc-custom==2.4.5
 jupyterhub-forwardbasespawner==2.1.2
 jupyterhub-outpostspawner==2.2.9
 jupyterhub-unicorespawner==2.1.6
@@ -14,3 +14,4 @@ aiohttp==3.14.0
 urllib3==2.7.0
 cryptography==46.0.7
 idna==3.15
+tornado==6.5.6

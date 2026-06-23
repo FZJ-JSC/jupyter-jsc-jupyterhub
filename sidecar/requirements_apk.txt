@@ -37,7 +37,7 @@ nghttp3==1.13.1-r0
 libpsl==0.21.5-r3
 libcurl==8.19.0-r0
 curl==8.19.0-r0
-libexpat==2.7.5-r0
+libexpat==2.8.1-r0
 pcre2==10.47-r0
 git==2.52.0-r0
 git-init-template==2.52.0-r0

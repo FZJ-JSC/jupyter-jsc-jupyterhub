@@ -18,7 +18,7 @@ RUN /usr/local/bin/python3 -m pip install --upgrade pip && /usr/local/bin/pip3 i
 # Install patches for specific JupyterHub Version
 RUN apt update && \
     apt install -yq git && \
-    git clone -b ${JUPYTERHUB_VERSION} https://github.com/jupyterhub/jupyterhub.git /src/jupyterhub && \
+    git -c http.version=HTTP/1.1 clone -b ${JUPYTERHUB_VERSION} https://github.com/jupyterhub/jupyterhub.git /src/jupyterhub && \
     rm -rf /src/jupyterhub/.git* && \
     apt remove -y git && \
     apt clean && \

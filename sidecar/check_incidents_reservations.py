@@ -148,12 +148,17 @@ async def update_incidents():
                     async with session.get(f"{api_url}/services/{id}") as svc_r:
                         svc_r.raise_for_status()
                         svc = await svc_r.json()
-                    active_svc_incidents = [
-                        x
-                        for x in all_incidents
-                        if int(id) in x.get("affected_services", [])
-                        and not x.get("resolved", "")
-                    ]
+                    #Temporarily ignore Jupiter incidents
+                    if id == 49:
+                        active_svc_incidents =[]
+                        svc["health"] = 0
+                    else:
+                        active_svc_incidents = [
+                            x
+                            for x in all_incidents
+                            if int(id) in x.get("affected_services", [])
+                            and not x.get("resolved", "")
+                        ]
                     active_svc_incidents = filter_and_sort_incidents(
                         active_svc_incidents
                     )

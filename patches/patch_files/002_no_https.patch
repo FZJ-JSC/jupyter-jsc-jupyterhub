@@ -1,7 +1,7 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2026-03-30 15:22:32.422275881 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2026-03-30 15:24:13.013648243 +0200
-@@ -3735,7 +3735,7 @@
+--- ../jupyterhub/jupyterhub/app.py	2026-10-09 12:33:14.223877128 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2026-10-09 12:34:40.927574623 +0200
+@@ -3887,7 +3887,7 @@
          # start the webserver
          self.http_server = tornado.httpserver.HTTPServer(
              self.tornado_application,

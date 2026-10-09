@@ -1,0 +1,12 @@
+diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/slugs.py ../jupyterhub-patched/jupyterhub/slugs.py
+--- ../jupyterhub/jupyterhub/slugs.py	2026-10-09 12:31:36.657345902 +0200
++++ ../jupyterhub-patched/jupyterhub/slugs.py	2026-10-09 15:02:06.301175470 +0200
+@@ -72,7 +72,7 @@
+ _hash_length = 8
+ 
+ # default max length of slug
+-_max_length = 30
++_max_length = 32
+ 
+ # Unicode printable characters excluding whitespace, based on
+ # https://stackoverflow.com/questions/41757886/how-can-i-recognise-non-printable-unicode-characters-in-python/41761339#41761339

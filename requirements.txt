@@ -1,7 +1,7 @@
 jupyterhub==6.0.1
-jupyter-jsc-custom==2.5.1
+jupyter-jsc-custom==2.5.2
 jupyterhub-forwardbasespawner==2.1.2
-jupyterhub-outpostspawner==2.2.10
+jupyterhub-outpostspawner==2.2.11
 jupyterhub-unicorespawner==2.1.6
 jupyterhub-credit-service==0.4.1
 python-logging-loki-v2==1.1.1

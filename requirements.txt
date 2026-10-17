@@ -3,7 +3,7 @@ jupyter-jsc-custom==2.5.9
 jupyterhub-forwardbasespawner==2.1.2
 jupyterhub-outpostspawner==2.2.12
 jupyterhub-unicorespawner==2.1.6
-jupyterhub-credit-service==0.4.1
+jupyterhub-credit-service==0.4.2
 python-logging-loki-v2==1.1.1
 httpx==0.28.1
 kubernetes==33.1.0

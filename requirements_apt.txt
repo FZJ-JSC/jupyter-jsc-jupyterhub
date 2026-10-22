@@ -3,8 +3,6 @@ ca-certificates
 libssl-dev
 linux-libc-dev=6.1.190-1
 locales
-nodejs
-npm
 openssh-client
 python3-dev
 python3-pip

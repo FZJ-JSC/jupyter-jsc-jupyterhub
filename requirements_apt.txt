@@ -1,6 +1,7 @@
 build-essential
 ca-certificates
 libssl-dev
+linux-libc-dev=6.1.190-1
 locales
 nodejs
 npm

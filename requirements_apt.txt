@@ -1,10 +1,3 @@
-build-essential
 ca-certificates
-libssl-dev
-linux-libc-dev=6.1.190-1
-locales
 openssh-client
-python3-dev
-python3-pip
-python3-pycurl
-swig
+patch

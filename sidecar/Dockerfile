@@ -6,6 +6,11 @@ RUN apk update && xargs -a /tmp/requirements_apk.txt apk add --no-cache
 COPY requirements_pip.txt /tmp/requirements_pip.txt
 RUN python3 -m pip install --upgrade pip && python3 -m pip install -r /tmp/requirements_pip.txt
 
+# Remove npm component trees bundled with the jupyterhub wheel. Nodejs is not
+# installed, the sidecar only serves/reads static/images, and the moment
+# package.json (v2.30.1) triggers CVE-2026-17495 in dependency scanners.
+RUN rm -rf /usr/local/share/jupyterhub/static/components
+
 COPY internal_ssl.py /internal_ssl.py
 COPY check_frontend_files.sh /check_frontend_files.sh
 COPY check_incidents_reservations.py /check_incidents_reservations.py

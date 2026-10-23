@@ -1,7 +1,7 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/app.py ../jupyterhub-patched/jupyterhub/app.py
---- ../jupyterhub/jupyterhub/app.py	2026-10-09 12:31:36.652345877 +0200
-+++ ../jupyterhub-patched/jupyterhub/app.py	2026-10-09 12:32:41.670983461 +0200
-@@ -3102,6 +3102,7 @@
+--- ../jupyterhub/jupyterhub/app.py	2026-10-23 19:58:26.483154796 +0200
++++ ../jupyterhub-patched/jupyterhub/app.py	2026-10-23 19:59:09.505162122 +0200
+@@ -3104,6 +3104,7 @@
                      "Verifying that %s is running at %s", spawner._log_name, url
                  )
                  try:

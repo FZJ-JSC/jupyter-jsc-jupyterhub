@@ -1,16 +1,18 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/base.py ../jupyterhub-patched/jupyterhub/handlers/base.py
---- ../jupyterhub/jupyterhub/handlers/base.py	2026-10-09 12:31:36.653877010 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2026-10-09 12:40:49.497176159 +0200
-@@ -1164,6 +1164,8 @@
+--- ../jupyterhub/jupyterhub/handlers/base.py	2026-10-23 19:58:26.483886600 +0200
++++ ../jupyterhub-patched/jupyterhub/handlers/base.py	2026-10-23 20:03:18.150184459 +0200
+@@ -1204,6 +1204,10 @@
                      'servername': server_name,
                  },
              )
++
 +            if getattr(spawner, 'successful_spawn_hook', None):
 +                await spawner.successful_spawn_hook(spawner, toc - tic)
++
              proxy_add_start_time = time.perf_counter()
              spawner._proxy_pending = True
              try:
-@@ -1226,6 +1228,9 @@
+@@ -1266,6 +1270,9 @@
                  status = ServerSpawnStatus.error
                  reason = ServerSpawnFailureReason.none
  

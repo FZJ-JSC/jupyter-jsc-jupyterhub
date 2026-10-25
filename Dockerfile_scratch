@@ -109,4 +109,17 @@ RUN apt-get update \
  && cat /tmp/requirements_apt.txt | xargs apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
+
+ENV JUPYTERHUB_VERSION=6.1.1
+# Install patches for specific JupyterHub Version
+COPY ./patches/patch_files /src/patches/patch_files
+COPY ./patches/install_patches.sh /src/patches/install_patches.sh
+RUN git -c http.version=HTTP/1.1 clone -b ${JUPYTERHUB_VERSION} https://github.com/jupyterhub/jupyterhub.git /src/jupyterhub && \
+    rm -rf /src/jupyterhub/.git* && \
+    rm -rf /var/lib/apt/lists/* && \
+    chown -R ${NB_USER}:${NB_USER} /src/jupyterhub && \
+    chown -R ${NB_USER}:${NB_USER} /src/patches
+
+RUN /src/patches/install_patches.sh
+
 USER ${NB_USER}

@@ -1,9 +1,11 @@
 jupyterhub==6.1.1
-kubernetes==33.1.0
+
 aiohttp==3.14.5
-python-dateutil==2.9.0.post0
-msgpack==1.2.3
-pyyaml==6.0.3
-Mako==1.4.3
-urllib3==2.8.0
 idna==3.20
+kubernetes==35.0.0
+Mako==1.4.3
+msgpack==1.2.3
+python-dateutil==2.9.0.post0
+pyyaml==6.0.3
+setuptools==84.1.0
+urllib3==2.8.0

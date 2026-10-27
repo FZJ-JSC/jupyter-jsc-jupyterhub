@@ -5,7 +5,12 @@ tests/k8s_test_setup/*
 tests/k8s_test_setup/templates/certs/ca-root.srl
 tests/local_tests/*
 !tests/local_tests/start_local_container_setup
-patches/*/jupyterhub*
+# local dev scratch: SSH keys + VS Code setups, never commit
+devel/interactive*/
+# patched jupyterhub source checkouts
+patches/*jupyterhub*
+# archived patch sets for old jupyterhub versions (only patch_files/ is used)
+patches/patch_files_*
 jupyterhub-proxy.pid
 .env_secret
 data2

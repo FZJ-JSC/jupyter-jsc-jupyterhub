@@ -1,0 +1,25 @@
+# This file is the input to the jjsc section of requirements_upstream.txt,
+# which is a frozen version of this (compiled with pip-compile, the same way
+# upstream compiles unfrozen/requirements.txt into images/hub/requirements.txt).
+#
+# Direct requirements for the jjsc customizations. pip-compile resolves the
+# transitive dependencies into the pinned "jjsc customizations" section at the
+# bottom of requirements_upstream.txt.
+#
+# Bump a pin here, then re-run update-requirements.sh to refresh the frozen
+# section.
+
+# -- jjsc customizations (own packages) --
+jupyter-jsc-custom==2.5.*
+jupyterhub-credit-service==0.4.*
+jupyterhub-forwardbasespawner==2.1.*
+jupyterhub-outpostspawner==2.2.*
+jupyterhub-unicorespawner==2.1.*
+
+# -- direct dependencies of the customizations (pinned for version control) --
+httpx==0.28.*
+kubernetes==35.*
+msgpack==1.2.*
+python-logging-loki-v2==1.1.*
+pyunicore==1.3.*
+

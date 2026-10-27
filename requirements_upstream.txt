@@ -280,16 +280,100 @@ webcolors==25.10.0
 yarl==1.25.1
     # via aiohttp
 
-jupyter-jsc-custom==2.5.11
-jupyterhub-forwardbasespawner==2.1.2
-jupyterhub-outpostspawner==2.2.13
-jupyterhub-unicorespawner==2.1.6
-jupyterhub-credit-service==0.4.2
+# --- jjsc customizations (own packages + their new transitive deps) ---
+
+anyio==4.15.1
+    # via httpx
+
+datefinder==1.0.0
+    # via jupyter-jsc-custom
+
+durationpy==0.11
+    # via kubernetes
+
+etcdpy==0.0.0.2
+    # via jupyter-jsc-custom
+
+grpcio==1.84.1
+    # via etcdpy
+
+h11==0.16.0
+    # via httpcore
+
+httpcore==1.0.9
+    # via httpx
 
 httpx==0.28.1
+    # via -r unfrozen/requirements-jsc.txt
+
+jsonformatter==0.3.4
+    # via jupyter-jsc-custom
+
+jupyter-jsc-custom==2.5.11
+    # via -r unfrozen/requirements-jsc.txt
+
+jupyterhub-credit-service==0.4.2
+    # via -r unfrozen/requirements-jsc.txt
+
+jupyterhub-forwardbasespawner==2.1.2
+    # via
+    #   -r unfrozen/requirements-jsc.txt
+    #   jupyter-jsc-custom
+    #   jupyterhub-outpostspawner
+    #   jupyterhub-unicorespawner
+
+jupyterhub-outpostspawner==2.2.13
+    # via
+    #   -r unfrozen/requirements-jsc.txt
+    #   jupyter-jsc-custom
+
+jupyterhub-traefik-proxy==2.1.0
+    # via jupyter-jsc-custom
+
+jupyterhub-unicorespawner==2.1.6
+    # via
+    #   -r unfrozen/requirements-jsc.txt
+    #   jupyter-jsc-custom
+
 kubernetes==35.0.0
+    # via
+    #   -r unfrozen/requirements-jsc.txt
+    #   jupyterhub-forwardbasespawner
+    #   jupyterhub-outpostspawner
+
 msgpack==1.2.3
+    # via -r unfrozen/requirements-jsc.txt
+
+protobuf==7.36.2
+    # via etcdpy
+
 python-logging-loki-v2==1.1.1
+    # via -r unfrozen/requirements-jsc.txt
+
+pytz==2026.5
+    # via datefinder
+
 pyunicore==1.3.7
-urllib3==2.8.0
+    # via
+    #   -r unfrozen/requirements-jsc.txt
+    #   jupyterhub-unicorespawner
+
+regex==2026.9.29
+    # via datefinder
+
+rfc3339==6.2
+    # via python-logging-loki-v2
+
+sseclient-py==1.9.0
+    # via jupyterhub-outpostspawner
+
+toml==0.10.2
+    # via jupyterhub-traefik-proxy
+
+websocket-client==1.9.2
+    # via kubernetes
+
+
+# Pinned manually (not via the upstream or jjsc dependency tree),
+# upgraded for CVE-2026-59890:
 setuptools==84.2.0

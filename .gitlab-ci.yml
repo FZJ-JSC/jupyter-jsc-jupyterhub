@@ -1,6 +1,81 @@
 stages:
+  - release
+  - check
+  - update
   - build
 
+# One-click release: after you approve + merge the update PR (or after any
+# change on the default branch), run this job manually. It reads the base
+# JupyterHub version, computes the next <base>-post.<N> tag against the
+# remote, and pushes the tag on the exact commit. Pushing the tag
+# automatically triggers the build-tag job, which builds + pushes the hub
+# and sidecar images under that tag.
+#
+# It is in the first stage on purpose: GitLab blocks later stages while a
+# manual job is pending, so a pending tag-release job must not wait behind
+# anything else.
+tag-release:
+  stage: release
+  image: python:3.14-trixie
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  script:
+    - BASE=$(grep -E '^jupyterhub==' requirements_upstream.txt | sed 's/^jupyterhub==//')
+    - echo "base version: $BASE"
+    - |
+      LATEST=$(git ls-remote --tags origin "${BASE}-post.*" \
+        | sed 's|.*refs/tags/||' \
+        | grep -oE 'post\.[0-9]+$' \
+        | grep -oE '[0-9]+$' \
+        | sort -n | tail -1)
+      NEXT=$(( ${LATEST:-0} + 1 ))
+      TAG="${BASE}-post.${NEXT}"
+      echo "latest ${BASE}-post.* tag: ${LATEST:-<none>}  ->  next: ${TAG}"
+      test -n "$(git ls-remote --tags origin "refs/tags/$TAG" 2>/dev/null)" && \
+        { echo "tag $TAG already exists" >&2; exit 1; }
+      git tag -a "$TAG" -m "jhub release ${TAG} (base ${BASE})" "${CI_COMMIT_SHA}"
+      git push origin "$TAG"
+      echo "released tag: $TAG  (build-tag job will now build + push the images)"
+
+check-requirements:
+  stage: check
+  image: python:3.12-slim
+  script:
+    - python check-requirements.py
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - when: manual
+
+# Weekly / manual refresh of the jjsc section of requirements_upstream.txt.
+# Runs the repo's update-requirements.sh (no-docker path inside the py3.14
+# image) and, if the frozen jjsc section drifted, pushes a branch and opens
+# a merge request that a human reviews, approves and merges.
+update-requirements:
+  stage: update
+  image: python:3.14-trixie
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  script:
+    - ./update-requirements.sh --yes
+    - |
+      if [[ -z "$(git status --porcelain)" ]]; then
+        echo "no drift — nothing to update."
+        exit 0
+      fi
+      test -n "${GL_TOKEN:-}" || { echo "error: GL_TOKEN (project access token, api scope) is required to open the MR" >&2; exit 1; }
+      BRANCH="ci/update-requirements-$(date -u +%Y%m%d-%H%M%S)"
+      git config user.name "GitLab CI"
+      git config user.email "gitlab-ci@localhost"
+      git checkout -b "$BRANCH"
+      git add requirements_upstream.txt
+      git commit -m "chore: refresh jjsc requirements section" -m "Automated by the scheduled update-requirements job."
+      git push origin "$BRANCH"
+      echo "created branch: $BRANCH"
+      python3 create-mr.py "$BRANCH"
 
 build-scratch:
   stage: build
@@ -42,7 +117,7 @@ build-sidecar:
   script:
     # Authenticate to your registry
     - mkdir -p ~/.docker
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"},\"dhi.io\":{\"username\":\"$CI_REGISTRY_DOCKERHUB_USER\",\"password\":\"$CI_REGISTRY_DOCKERHUB_PASSWORD\"}}}" > ~/.docker/config.json
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}},\"dhi.io\":{\"username\":\"$CI_REGISTRY_DOCKERHUB_USER\",\"password\":\"$CI_REGISTRY_DOCKERHUB_PASSWORD\"}}}" > ~/.docker/config.json
     - buildkitd &
     - sleep 5
     - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR}/sidecar --local dockerfile=${CI_PROJECT_DIR}/sidecar/ --output type=image,name=${CI_REGISTRY_IMAGE}:sidecar-${CI_COMMIT_SHORT_SHA},push=true --output type=image,name=${CI_REGISTRY_IMAGE}:sidecar-latest,push=true
@@ -58,7 +133,7 @@ build-tag:
     CACHE_IMAGE_SIDECAR: "$CI_REGISTRY_IMAGE:buildcachesidecar"
   script:
     - mkdir -p ~/.docker
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"},\"dhi.io\":{\"username\":\"$CI_REGISTRY_DOCKERHUB_USER\",\"password\":\"$CI_REGISTRY_DOCKERHUB_PASSWORD\"}}}" > ~/.docker/config.json
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}},\"dhi.io\":{\"username\":\"$CI_REGISTRY_DOCKERHUB_USER\",\"password\":\"$CI_REGISTRY_DOCKERHUB_PASSWORD\"}}}" > ~/.docker/config.json
     - buildkitd &
     - sleep 5
     - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR} --output type=image,name=${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG},push=true --output type=image,name=${CI_REGISTRY_IMAGE}:latest,push=true

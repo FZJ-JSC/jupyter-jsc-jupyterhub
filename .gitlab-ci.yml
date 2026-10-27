@@ -81,9 +81,12 @@ update-requirements:
       # The default CI origin authenticates with the read-only CI_JOB_TOKEN,
       # so it cannot push. Push explicitly with the project access token
       # GL_TOKEN instead - for a project token any non-blank username works.
-      # Build https://ci-bot:<token>@<host>/<path> by stripping the scheme.
+      # The checkout remote already has scheme + job-token credentials embedded
+      # (https://gitlab-ci-token:***@host/...), so strip both before adding ours.
       ORIGIN=$(git remote get-url origin)
-      PUSH_URL="https://ci-bot:${GL_TOKEN}@${ORIGIN#https://}"
+      HOSTPATH=${ORIGIN#*://}   # drop scheme -> gitlab-ci-token:***@host/path
+      HOSTPATH=${HOSTPATH#*@}   # drop embedded user:pass@ -> host/path
+      PUSH_URL="https://ci-bot:${GL_TOKEN}@${HOSTPATH}"
       git push "$PUSH_URL" "$BRANCH"
       echo "created branch: $BRANCH"
       python3 create-mr.py "$BRANCH"

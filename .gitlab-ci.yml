@@ -8,15 +8,18 @@ stages:
 # change on the default branch), run this job manually. It reads the base
 # JupyterHub version, computes the next <base>-post.<N> tag against the
 # remote, and pushes the tag on the exact commit. Pushing the tag
-# automatically triggers the build-tag job, which builds + pushes the hub
-# and sidecar images under that tag.
+# automatically triggers the build-tag job (separate tag pipeline),
+# which builds + pushes the hub and sidecar images under that tag.
 #
-# It is in the first stage on purpose: GitLab blocks later stages while a
-# manual job is pending, so a pending tag-release job must not wait behind
-# anything else.
+# All jobs in this pipeline use `needs: []` (DAG model) on purpose: in the
+# default stage model a pending MANUAL job blocks every later stage, which
+# would make it impossible to run check/build jobs on a push without first
+# creating a tag. With `needs: []` every job can be started independently,
+# regardless of other pending manual jobs.
 tag-release:
   stage: release
   image: python:3.14-trixie
+  needs: []
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
@@ -41,6 +44,7 @@ tag-release:
 check-requirements:
   stage: check
   image: python:3.12-slim
+  needs: []
   script:
     - python check-requirements.py
   rules:
@@ -55,6 +59,7 @@ check-requirements:
 update-requirements:
   stage: update
   image: python:3.14-trixie
+  needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -80,6 +85,7 @@ update-requirements:
 build-scratch:
   stage: build
   image: moby/buildkit:latest
+  needs: []
   variables:
     CACHE_IMAGE: "$CI_REGISTRY_IMAGE:buildcachetest"
   script:
@@ -96,6 +102,7 @@ build-scratch:
 build-devel:
   stage: build
   image: moby/buildkit:latest
+  needs: []
   variables:
     CACHE_IMAGE: "$CI_REGISTRY_IMAGE:buildcachedevel"
   script:
@@ -112,6 +119,7 @@ build-devel:
 build-sidecar:
   stage: build
   image: moby/buildkit:latest
+  needs: []
   variables:
     CACHE_IMAGE: "$CI_REGISTRY_IMAGE:buildcachesidecar"
   script:
@@ -128,6 +136,7 @@ build-sidecar:
 build-tag:
   stage: build
   image: moby/buildkit:latest
+  needs: []
   variables:
     CACHE_IMAGE: "$CI_REGISTRY_IMAGE:buildcache"
     CACHE_IMAGE_SIDECAR: "$CI_REGISTRY_IMAGE:buildcachesidecar"

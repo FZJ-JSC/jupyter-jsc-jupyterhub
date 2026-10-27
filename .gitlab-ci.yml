@@ -22,7 +22,7 @@ tag-release:
       when: manual
   script:
     - BASE=$(grep -E '^jupyterhub==' requirements_upstream.txt | sed 's/^jupyterhub==//')
-    - echo "base version: $BASE"
+    - "echo base version: $BASE"
     - |
       LATEST=$(git ls-remote --tags origin "${BASE}-post.*" \
         | sed 's|.*refs/tags/||' \

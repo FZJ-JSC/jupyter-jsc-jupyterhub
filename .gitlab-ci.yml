@@ -71,14 +71,20 @@ update-requirements:
         echo "no drift — nothing to update."
         exit 0
       fi
-      test -n "${GL_TOKEN:-}" || { echo "error: GL_TOKEN (project access token, api scope) is required to open the MR" >&2; exit 1; }
+      test -n "${GL_TOKEN:-}" || { echo "error: GL_TOKEN (project access token) is required - it needs BOTH the api and write_repository scopes" >&2; exit 1; }
       BRANCH="ci/update-requirements-$(date -u +%Y%m%d-%H%M%S)"
       git config user.name "GitLab CI"
       git config user.email "gitlab-ci@localhost"
       git checkout -b "$BRANCH"
       git add requirements_upstream.txt
       git commit -m "chore: refresh jjsc requirements section" -m "Automated by the scheduled update-requirements job."
-      git push origin "$BRANCH"
+      # The default CI origin authenticates with the read-only CI_JOB_TOKEN,
+      # so it cannot push. Push explicitly with the project access token
+      # GL_TOKEN instead - for a project token any non-blank username works.
+      # Build https://ci-bot:<token>@<host>/<path> by stripping the scheme.
+      ORIGIN=$(git remote get-url origin)
+      PUSH_URL="https://ci-bot:${GL_TOKEN}@${ORIGIN#https://}"
+      git push "$PUSH_URL" "$BRANCH"
       echo "created branch: $BRANCH"
       python3 create-mr.py "$BRANCH"
 

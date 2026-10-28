@@ -42,7 +42,12 @@ tag-release:
       git config user.name "GitLab CI"
       git config user.email "gitlab-ci@localhost"
       git tag -a "$TAG" -m "jhub release ${TAG} (base ${BASE})" "${CI_COMMIT_SHA}"
-      git push origin "$TAG"
+      test -n "${GL_TOKEN:-}" || { echo "error: GL_TOKEN (project access token) is required - it needs BOTH the api and write_repository scopes" >&2; exit 1; }
+      ORIGIN=$(git remote get-url origin)
+      HOSTPATH=${ORIGIN#*://}   # drop scheme -> gitlab-ci-token:***@host/path
+      HOSTPATH=${HOSTPATH#*@}   # drop embedded user:pass@ -> host/path
+      PUSH_URL="https://ci-bot:${GL_TOKEN}@${HOSTPATH}"
+      git push "$PUSH_URL" "$TAG"
       echo "released tag: $TAG  (build-tag job will now build + push the images)"
 
 check-requirements:

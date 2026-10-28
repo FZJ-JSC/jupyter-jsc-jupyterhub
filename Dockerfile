@@ -170,9 +170,10 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR} \
     ; fi
 
 # 3) JupyterHub source + jjsc patches. JUPYTERHUB_VERSION is overridable from
-#    CI (--build-arg) so the cloned+patched source always matches the
-#    jupyterhub pin in requirements_upstream.txt; the default keeps local
-#    builds working without the arg.
+#    CI (buildctl: --opt build-arg:JUPYTERHUB_VERSION=...) so the
+#    cloned+patched source always matches the jupyterhub pin in
+#    requirements_upstream.txt; the default keeps local builds working
+#    without the arg.
 ARG JUPYTERHUB_VERSION=6.1.1
 ENV JUPYTERHUB_VERSION=${JUPYTERHUB_VERSION}
 COPY ./patches/patch_files /src/patches/patch_files

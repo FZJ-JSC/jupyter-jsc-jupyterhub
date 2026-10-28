@@ -294,7 +294,7 @@ durationpy==0.11
 etcdpy==0.0.0.2
     # via jupyter-jsc-custom
 
-grpcio==1.84.1
+grpcio==1.85.0
     # via etcdpy
 
 h11==0.16.0
@@ -330,7 +330,7 @@ jupyterhub-outpostspawner==2.2.13
 jupyterhub-traefik-proxy==2.1.0
     # via jupyter-jsc-custom
 
-jupyterhub-unicorespawner==2.1.6
+jupyterhub-unicorespawner==2.1.7
     # via
     #   -r unfrozen/requirements-jsc.txt
     #   jupyter-jsc-custom
@@ -341,7 +341,7 @@ kubernetes==35.0.0
     #   jupyterhub-forwardbasespawner
     #   jupyterhub-outpostspawner
 
-msgpack==1.2.3
+msgpack==1.2.4
     # via -r unfrozen/requirements-jsc.txt
 
 protobuf==7.36.2

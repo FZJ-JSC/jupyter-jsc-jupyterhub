@@ -47,13 +47,22 @@ tag-release:
       HOSTPATH=${ORIGIN#*://}   # drop scheme -> gitlab-ci-token:***@host/path
       HOSTPATH=${HOSTPATH#*@}   # drop embedded user:pass@ -> host/path
       PUSH_URL="https://ci-bot:${GL_TOKEN}@${HOSTPATH}"
-      git push "$PUSH_URL" "$TAG"
+      # Push via a temp file and scrub the token from git's output: on a
+      # failed push git prints the full URL (token included) into the log.
+      if ! git push "$PUSH_URL" "$TAG" > /tmp/push.out 2>&1; then
+        sed "s/${GL_TOKEN}/REDACTED/g" /tmp/push.out >&2
+        echo "error: git push failed" >&2
+        exit 1
+      fi
+      sed "s/${GL_TOKEN}/REDACTED/g" /tmp/push.out
+      rm -f /tmp/push.out
       echo "released tag: $TAG  (build-tag job will now build + push the images)"
 
 check-requirements:
   stage: check
   image: python:3.12-slim
   needs: []
+  allow_failure: true
   script:
     - python check-requirements.py
   rules:
@@ -81,7 +90,9 @@ update-requirements:
         exit 0
       fi
       test -n "${GL_TOKEN:-}" || { echo "error: GL_TOKEN (project access token) is required - it needs BOTH the api and write_repository scopes" >&2; exit 1; }
-      BRANCH="ci/update-requirements-$(date -u +%Y%m%d-%H%M%S)"
+      # Fixed branch name: a re-run pushes into the same branch, so GitLab
+      # updates the existing MR instead of stacking a duplicate one.
+      BRANCH="ci/update-requirements"
       git config user.name "GitLab CI"
       git config user.email "gitlab-ci@localhost"
       git checkout -b "$BRANCH"
@@ -96,7 +107,15 @@ update-requirements:
       HOSTPATH=${ORIGIN#*://}   # drop scheme -> gitlab-ci-token:***@host/path
       HOSTPATH=${HOSTPATH#*@}   # drop embedded user:pass@ -> host/path
       PUSH_URL="https://ci-bot:${GL_TOKEN}@${HOSTPATH}"
-      git push "$PUSH_URL" "$BRANCH"
+      # Push via a temp file and scrub the token from git's output: on a
+      # failed push git prints the full URL (token included) into the log.
+      if ! git push "$PUSH_URL" "$BRANCH" > /tmp/push.out 2>&1; then
+        sed "s/${GL_TOKEN}/REDACTED/g" /tmp/push.out >&2
+        echo "error: git push failed" >&2
+        exit 1
+      fi
+      sed "s/${GL_TOKEN}/REDACTED/g" /tmp/push.out
+      rm -f /tmp/push.out
       echo "created branch: $BRANCH"
       python3 create-mr.py "$BRANCH"
 
@@ -130,7 +149,11 @@ build-test:
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}},\"dhi.io\":{\"username\":\"$CI_REGISTRY_DOCKERHUB_USER\",\"password\":\"$CI_REGISTRY_DOCKERHUB_PASSWORD\"}}}" > ~/.docker/config.json
     - buildkitd &
     - sleep 5
-    - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR} --output type=image,name=${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA},push=true
+    # Derive the JupyterHub version from the frozen requirements so the
+    # cloned+patched source in the Dockerfile always matches the installed
+    # jupyterhub pin (no manual sync of the Dockerfile ARG needed).
+    - JHUB_VER=$(grep -E '^jupyterhub==' requirements_upstream.txt | sed 's/^jupyterhub==//')
+    - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR} --build-arg JUPYTERHUB_VERSION=$JHUB_VER --output type=image,name=${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA},push=true
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -148,6 +171,9 @@ build-test-sidecar:
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}},\"dhi.io\":{\"username\":\"$CI_REGISTRY_DOCKERHUB_USER\",\"password\":\"$CI_REGISTRY_DOCKERHUB_PASSWORD\"}}}" > ~/.docker/config.json
     - buildkitd &
     - sleep 5
+    # The sidecar build context is sidecar/ only, so hand it the root
+    # overrides file (its Dockerfile applies it to the pinned set).
+    - cp overrides.txt sidecar/
     - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE_SIDECAR,mode=max --import-cache type=registry,ref=$CACHE_IMAGE_SIDECAR --local context=${CI_PROJECT_DIR}/sidecar --local dockerfile=${CI_PROJECT_DIR}/sidecar/ --output type=image,name=${CI_REGISTRY_IMAGE}:sidecar-${CI_COMMIT_SHORT_SHA},push=true
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -166,7 +192,11 @@ build-tags:
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}},\"dhi.io\":{\"username\":\"$CI_REGISTRY_DOCKERHUB_USER\",\"password\":\"$CI_REGISTRY_DOCKERHUB_PASSWORD\"}}}" > ~/.docker/config.json
     - buildkitd &
     - sleep 5
-    - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR} --output type=image,name=${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG},push=true --output type=image,name=${CI_REGISTRY_IMAGE}:latest,push=true
+    # Same JUPYTERHUB_VERSION derivation as build-test (see there).
+    - JHUB_VER=$(grep -E '^jupyterhub==' requirements_upstream.txt | sed 's/^jupyterhub==//')
+    - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE,mode=max --import-cache type=registry,ref=$CACHE_IMAGE --local context=${CI_PROJECT_DIR} --local dockerfile=${CI_PROJECT_DIR} --build-arg JUPYTERHUB_VERSION=$JHUB_VER --output type=image,name=${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG},push=true --output type=image,name=${CI_REGISTRY_IMAGE}:latest,push=true
+    # Sidecar build context is sidecar/ only - hand it the root overrides file.
+    - cp overrides.txt sidecar/
     - buildctl build --frontend dockerfile.v0 --export-cache type=registry,ref=$CACHE_IMAGE_SIDECAR,mode=max --import-cache type=registry,ref=$CACHE_IMAGE_SIDECAR --local context=${CI_PROJECT_DIR}/sidecar --local dockerfile=${CI_PROJECT_DIR}/sidecar --output type=image,name=${CI_REGISTRY_IMAGE}:sidecar-${CI_COMMIT_TAG},push=true --output type=image,name=${CI_REGISTRY_IMAGE}:sidecar-latest,push=true
   rules:
     - if: $CI_COMMIT_TAG

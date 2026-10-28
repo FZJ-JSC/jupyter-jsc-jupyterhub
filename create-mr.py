@@ -5,12 +5,14 @@ Used by the scheduled ``update-requirements`` CI job. Reads the GitLab
 credentials + API location from the standard CI environment variables
 (``GL_TOKEN`` project access token with api scope, ``CI_API_V4_URL``,
 ``CI_PROJECT_ID``, ``CI_DEFAULT_BRANCH``) and takes the source branch as
-argv[1].
+argv[1]. If an open MR for the branch already exists (the CI job pushes a
+fixed branch name), it is reported instead of opening a duplicate.
 """
 import json
 import os
 import sys
 import urllib.request
+from urllib.parse import quote
 
 
 def main() -> int:
@@ -23,10 +25,24 @@ def main() -> int:
             print(f"error: environment variable {var} is required", file=sys.stderr)
             return 1
 
-    url = (
+    base = (
         f"{os.environ['CI_API_V4_URL']}"
-        f"/projects/{os.environ['CI_PROJECT_ID']}/merge_requests"
+        f"/projects/{os.environ['CI_PROJECT_ID']}"
     )
+    headers = {"Authorization": f"Bearer {os.environ['GL_TOKEN']}"}
+
+    # Reuse the open MR if this branch already has one.
+    req = urllib.request.Request(
+        f"{base}/merge_requests?state=opened&source_branch={quote(branch)}",
+        headers=headers,
+    )
+    open_mrs = json.loads(urllib.request.urlopen(req, timeout=30).read())
+    if open_mrs:
+        mr = open_mrs[0]
+        print(f"MR !{mr['iid']} already open for {branch}: {mr['web_url']}")
+        return 0
+
+    url = f"{base}/merge_requests"
     body = json.dumps({
         "source_branch": branch,
         "target_branch": os.environ.get("CI_DEFAULT_BRANCH", "main"),
@@ -48,10 +64,7 @@ def main() -> int:
         url,
         data=body,
         method="POST",
-        headers={
-            "Authorization": f"Bearer {os.environ['GL_TOKEN']}",
-            "Content-Type": "application/json",
-        },
+        headers={**headers, "Content-Type": "application/json"},
     )
     data = json.loads(urllib.request.urlopen(req, timeout=30).read())
     print(f"created MR !{data['iid']}: {data['web_url']}")

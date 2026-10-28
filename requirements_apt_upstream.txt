@@ -1,8 +1,0 @@
-ca-certificates
-curl
-dnsutils
-git
-less
-openssh-client
-patch
-vim

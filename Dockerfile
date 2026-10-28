@@ -1,6 +1,21 @@
 # syntax = docker/dockerfile:1.3
 # VULN_SCAN_TIME=2026-10-19_05:13:49
-
+# ==========================================================
+# Upstream z2jh block - keep in sync with upstream, do not edit freely
+# ==========================================================
+# Verbatim copy of
+#   https://github.com/jupyterhub/zero-to-jupyterhub-k8s/blob/main/images/hub/Dockerfile
+# (synced 2026-10-28 from main @ e1606f9)
+#
+# To update: fetch the upstream file, replace everything from the top of this
+# banner to the "jjsc additions" separator below, and re-apply the one
+# documented deviation:
+#   requirements.txt -> requirements_upstream.txt
+# (our frozen copy of the upstream lock file).
+#
+# All JSC-specific changes (apt extras, version overrides, JupyterHub
+# patches) live in the "jjsc" stage below the separator.
+# ==========================================================
 
 # The build stage
 # ---------------
@@ -104,14 +119,62 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR} \
         # py-spy is useful for profiling performance of running hubs
         py-spy
 
-COPY requirements_apt_upstream.txt /tmp/requirements_apt.txt
 RUN apt-get update \
- && cat /tmp/requirements_apt.txt | xargs apt-get install -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends \
+        curl \
+        dnsutils \
+        git \
+        less \
+        vim \
  && rm -rf /var/lib/apt/lists/*
 
+USER ${NB_USER}
 
-ENV JUPYTERHUB_VERSION=6.1.1
-# Install patches for specific JupyterHub Version
+
+# ==========================================================
+# jjsc additions (everything below is JSC-specific)
+# ==========================================================
+# Applied on top of default-stage, in this order:
+#   1. apt packages that z2jh's default image does not ship
+#   2. version overrides (overrides.txt, e.g. CVE fixes ahead of upstream)
+#   3. JupyterHub source clone + jjsc patches (editable install)
+#
+FROM default-stage as jjsc
+
+USER root
+
+# 1) jjsc apt extras (upstream's own apt list is installed in the block above).
+#    grep strips comment lines, xargs -r skips the install for an empty file.
+COPY requirements_apt_jjsc.txt /tmp/requirements_apt_jjsc.txt
+RUN apt-get update \
+ && grep -vE '^\s*#' /tmp/requirements_apt_jjsc.txt | xargs -r apt-get install -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
+
+# 2) version overrides (see overrides.txt): install the overridden packages on
+#    top of the frozen set, constrained by the frozen file (minus the
+#    overridden names, whose locked pins would forbid the bump). No-op while
+#    overrides.txt has no pin lines. An override that needs a newer
+#    transitive dependency fails the build - add that dependency to
+#    overrides.txt as well.
+COPY overrides.txt /tmp/overrides.txt
+ARG PIP_CACHE_DIR=/tmp/pip-cache
+RUN --mount=type=cache,target=${PIP_CACHE_DIR} \
+    if grep -qE '^[A-Za-z0-9]' /tmp/overrides.txt; then \
+        echo "applying version overrides:" \
+        ; grep -E '^[A-Za-z0-9]' /tmp/overrides.txt \
+        ; OVERRIDDEN=$(grep -E '^[A-Za-z0-9]' /tmp/overrides.txt | cut -d= -f1 | tr '[:upper:]' '[:lower:]' | sed -E 's/[-_]+/-/g') \
+        ; awk -v ovr="$OVERRIDDEN" 'BEGIN{n=split(ovr,a," ");for(i=1;i<=n;i++)seen[a[i]]=1}{if($0~/^[A-Za-z0-9]/){name=$0;sub(/==.*/,"",name);name=tolower(name);gsub(/[-_]+/,"-",name);if(name in seen)next}print}' /tmp/requirements_upstream.txt > /tmp/override-constraints.txt \
+        ; pip install \
+            -c /tmp/override-constraints.txt \
+            -r /tmp/overrides.txt \
+    ; fi
+
+# 3) JupyterHub source + jjsc patches. JUPYTERHUB_VERSION is overridable from
+#    CI (--build-arg) so the cloned+patched source always matches the
+#    jupyterhub pin in requirements_upstream.txt; the default keeps local
+#    builds working without the arg.
+ARG JUPYTERHUB_VERSION=6.1.1
+ENV JUPYTERHUB_VERSION=${JUPYTERHUB_VERSION}
 COPY ./patches/patch_files /src/patches/patch_files
 COPY ./patches/install_patches.sh /src/patches/install_patches.sh
 RUN git -c http.version=HTTP/1.1 clone -b ${JUPYTERHUB_VERSION} https://github.com/jupyterhub/jupyterhub.git /src/jupyterhub && \

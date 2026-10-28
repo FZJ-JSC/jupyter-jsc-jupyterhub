@@ -1,0 +1,8 @@
+# jjsc-only apt packages, installed in the "jjsc" stage on top of the
+# upstream z2jh base image. Upstream's own apt list (curl, dnsutils, git,
+# less, vim, ...) is installed verbatim in the upstream block of the
+# Dockerfile - do not duplicate those here.
+ca-certificates
+openssh-client
+# needed by patches/install_patches.sh
+patch

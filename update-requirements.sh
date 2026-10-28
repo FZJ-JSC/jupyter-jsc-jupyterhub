@@ -55,7 +55,9 @@ awk '/^# --- jjsc customizations/{exit} {print}' "$REQ" > "$WORK/constraints.txt
 # 2) Compile. PyPI is occasionally flaky — retry once.
 if command -v docker >/dev/null; then
     docker run --rm -v "$WORK:/work" -w /work "$IMAGE" bash -c '
-      pip install --quiet pip-tools 2>/dev/null
+      # Pinned version: an unpinned pip-tools can change resolution or output
+      # formatting between runs, producing spurious diffs.
+      pip install --quiet 'pip-tools==7.6.2' 2>/dev/null
       compile() {
         pip-compile --no-header --no-emit-index-url --strip-extras \
           --constraint /work/constraints.txt \
@@ -73,7 +75,9 @@ if command -v docker >/dev/null; then
 else
     # Local interpreter (GitLab CI's python:3.14-trixie) — compile in $WORK
     # instead of the container's /work mount point.
-    python3 -m pip install --quiet pip-tools 2>/dev/null
+    # Pinned version: an unpinned pip-tools can change resolution or output
+    # formatting between runs, producing spurious diffs.
+    python3 -m pip install --quiet 'pip-tools==7.6.2' 2>/dev/null
     compile() {
       pip-compile --no-header --no-emit-index-url --strip-extras \
         --constraint "$WORK/constraints.txt" \

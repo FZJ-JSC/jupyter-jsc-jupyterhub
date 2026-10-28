@@ -4,7 +4,11 @@ COPY requirements_apk.txt /tmp/requirements_apk.txt
 RUN apk update && xargs -a /tmp/requirements_apk.txt apk add --no-cache
 
 COPY requirements_pip.txt /tmp/requirements_pip.txt
+COPY overrides.txt /tmp/overrides.txt
 RUN python3 -m pip install --upgrade pip && python3 -m pip install -r /tmp/requirements_pip.txt
+# Version overrides (see ../overrides.txt), applied on top of the pinned set.
+# No-op while overrides.txt has no pin lines.
+RUN if grep -qE '^[A-Za-z0-9]' /tmp/overrides.txt; then python3 -m pip install -r /tmp/overrides.txt; fi
 
 # Remove npm component trees bundled with the jupyterhub wheel. Nodejs is not
 # installed, the sidecar only serves/reads static/images, and the moment

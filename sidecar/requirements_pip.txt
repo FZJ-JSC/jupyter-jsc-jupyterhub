@@ -1,11 +1,14 @@
+# Subset of the hub's requirements_upstream.txt pins that the sidecar needs.
+# Keep versions in sync with the main file - check-requirements.py fails
+# the check job when they drift.
 jupyterhub==6.1.1
 
 aiohttp==3.14.5
 idna==3.20
 kubernetes==35.0.0
 Mako==1.4.3
-msgpack==1.2.3
+msgpack==1.2.4
 python-dateutil==2.9.0.post0
 pyyaml==6.0.3
-setuptools==84.1.0
+setuptools==84.2.0
 urllib3==2.8.0

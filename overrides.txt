@@ -1,0 +1,24 @@
+# Version overrides for the frozen requirements
+# ----------------------------------------------
+# Escape hatch for when a pinned package has a known issue (e.g. a CVE) and
+# upstream z2jh has not updated its lock file yet, so we cannot simply wait
+# for the next upstream sync.
+#
+# Usage:
+#   1. Add one pin line per package below, e.g.:
+#          aiohttp==3.15.2
+#      A short comment with the reason / CVE id is a good idea, so future-you
+#      knows why the line is here.
+#   2. Commit + push, run tag-release, roll out the new tag. Both Dockerfiles
+#      (hub + sidecar) pick the overrides up automatically: the overridden
+#      packages are installed at the pinned version, everything else stays at
+#      the locked version. An override that requires a newer transitive
+#      dependency fails the hub build - add that dependency to this file as
+#      well; every line here is an explicit deviation from the upstream lock
+#      file.
+#   3. Once the frozen file has caught up to (or past) the overridden
+#      version - check-requirements.py tells you when that is the case -
+#      merge the upstream block and delete the line again.
+#
+# Keep this file empty otherwise: while it is empty, the images are built
+# exactly from the frozen requirements.

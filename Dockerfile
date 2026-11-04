@@ -143,6 +143,17 @@ FROM default-stage as jjsc
 
 USER root
 
+# 0) The official python base image ships a CycloneDX SBOM for pip's
+#    *vendored* dependencies (site-packages/pip/_vendor/bom.cdx.json).
+#    Scanners (trivy, artifacthub) treat every listed component as an
+#    installed package, producing false positives - most notably the copy
+#    of setuptools (70.3.0) that pip vendors internally is reported as
+#    CVE-2025-47273 even though the actually installed setuptools is the
+#    pinned, newer version from requirements_upstream.txt. The file is
+#    pure metadata that pip does not use at runtime, so remove it to keep
+#    scans limited to what is really installed.
+RUN find /usr/local/lib -name bom.cdx.json -path "*/pip/_vendor/*" -delete
+
 # 1) jjsc apt extras (upstream's own apt list is installed in the block above).
 #    grep strips comment lines, xargs -r skips the install for an empty file.
 COPY requirements_apt_jjsc.txt /tmp/requirements_apt_jjsc.txt

@@ -11,6 +11,9 @@ devel/interactive*/
 patches/*jupyterhub*
 # archived patch sets for old jupyterhub versions (only patch_files/ is used)
 patches/patch_files_*
+# requirements-update job: pin-change report written by update-requirements.sh,
+# used as the merge request description (never commit)
+requirements-update-report.md
 jupyterhub-proxy.pid
 .env_secret
 data2

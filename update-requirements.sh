@@ -19,6 +19,9 @@
 #   2. Replaces everything between the "# --- jjsc customizations" separator
 #      and the "# Pinned manually" footer with the compiled entries. The
 #      upstream block and the setuptools footer are kept byte-identical.
+#   3. When the section changed, writes a markdown report of the pin
+#      changes (was -> now) to requirements-update-report.md. The CI job
+#      uses it as the merge request description (see create-mr.py).
 #
 # See also check-requirements.py (standalone drift check, used by CI).
 
@@ -27,6 +30,9 @@ cd "$(dirname "$0")"
 
 REQ=requirements_upstream.txt
 UNFROZEN=unfrozen/requirements-jsc.txt
+# Markdown report of the pin changes (was -> now), used as the merge request
+# description (see create-mr.py).
+REPORT_FILE=${REPORT_FILE:-requirements-update-report.md}
 IMAGE=${PUBPI_IMAGE:-python:3.14-trixie}
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -157,6 +163,60 @@ if diff -u "$REQ" "$WORK/newfile" > "$WORK/changes.diff"; then
     echo "no changes — the jjsc section is already up to date."
 else
     cat "$WORK/changes.diff"
+    # Markdown report of the pin changes (was -> now). Written before the mv
+    # below, so $REQ is still the "was" side. CI passes it to create-mr.py
+    # as the merge request description.
+    python3 - "$REQ" "$WORK/newfile" "$REPORT_FILE" <<'PY'
+import re
+import sys
+from datetime import datetime, timezone
+
+old_path, new_path, report_path = sys.argv[1], sys.argv[2], sys.argv[3]
+
+
+def pins(path):
+    """normalized name -> (raw name, version) for every pin line."""
+    out = {}
+    for line in open(path):
+        m = re.match(r"^([A-Za-z0-9._\[\]-]+)==(.+)$", line)
+        if m:
+            out[re.sub(r"[-_]+", "-", m.group(1)).lower()] = (m.group(1), m.group(2))
+    return out
+
+
+old, new = pins(old_path), pins(new_path)
+rows = [
+    [new[n][0], old[n][1], new[n][1]]
+    for n in sorted(set(old) & set(new))
+    if old[n][1] != new[n][1]
+]
+rows += [[new[n][0], "-", new[n][1]] for n in sorted(set(new) - set(old))]
+rows += [[old[n][0], old[n][1], "-"] for n in sorted(set(old) - set(new))]
+
+L = [
+    "# Requirements update report - "
+    + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    "",
+    "Automated by the scheduled `update-requirements` job. This branch/MR "
+    "accumulates updates over time - merge when you need them (e.g. due to "
+    "a CVE).",
+    "",
+    "Changes to `requirements_upstream.txt` (the upstream block is kept "
+    "byte-identical to the z2jh lock file and not touched by this job):",
+    "",
+    "## Updated pins",
+    "",
+    "| package | was | now |",
+    "|---|---|---|",
+]
+if rows:
+    L += [f"| {n} | {o} | {w} |" for n, o, w in rows]
+else:
+    L.append("_no pin changes - comment/via differences only_")
+L.append("")
+open(report_path, "w").write("\n".join(L))
+PY
+    echo "wrote $REPORT_FILE"
     if $apply; then
         mv "$WORK/newfile" "$REQ"
         echo "updated $REQ"

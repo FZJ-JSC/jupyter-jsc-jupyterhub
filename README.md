@@ -12,9 +12,12 @@ It is based on the official jupyterhub/k8s-hub image, but installs a few extra p
   applied, new leading versions are only reported). Both keep one
   accumulating merge request on `ci/update-requirements` up to date; its
   description carries a report of the pin changes (was -> now).
-- Merge requests may only be merged while their pipeline is green. The
-  `check-requirements` job is blocking in merge request pipelines (advisory
-  in scheduled/manual ones). To enforce this, protect `main` in the GitLab
-  UI: Settings -> Repository -> Protected branches -> `main` ->
-  "Pipelines must be successful" (and optionally restrict "Allowed to
-  merge" to maintainers).
+- Merge requests may only be merged while their pipeline is green. The hard
+  gates are the build jobs (`build-test`, `build-test-sidecar`). The
+  `check-requirements` job is advisory (allow_failure) in all pipelines: it
+  compares the frozen pins against live PyPI, so a new upstream release
+  would turn every open MR red by the mere passage of time - its drift
+  reports are handled by the accumulating update MR instead. To enforce the
+  gate, protect `main` in the GitLab UI: Settings -> Repository -> Protected
+  branches -> `main` -> "Pipelines must be successful" (and optionally
+  restrict "Allowed to merge" to maintainers).

@@ -1,15 +1,5 @@
 FROM python:3.13-alpine3.23
 
-# The official python image ships a CycloneDX SBOM for pip's *vendored*
-# dependencies (site-packages/pip/_vendor/bom.cdx.json). Scanners (trivy,
-# artifacthub) treat every listed component as an installed package,
-# producing false positives - e.g. the copy of setuptools (70.3.0) pip
-# vendors internally is reported as CVE-2025-47273 even though the
-# actually installed packages come from requirements_pip.txt. The file is
-# pure metadata that pip does not use at runtime, so remove it to keep
-# scans limited to what is really installed.
-RUN find /usr/local/lib -name bom.cdx.json -path "*/pip/_vendor/*" -delete
-
 COPY requirements_apk.txt /tmp/requirements_apk.txt
 RUN apk update && xargs -a /tmp/requirements_apk.txt apk add --no-cache
 
@@ -19,6 +9,20 @@ RUN python3 -m pip install --upgrade pip && python3 -m pip install -r /tmp/requi
 # Version overrides (see ../overrides.txt), applied on top of the pinned set.
 # No-op while overrides.txt has no pin lines.
 RUN if grep -qE '^[A-Za-z0-9]' /tmp/overrides.txt; then python3 -m pip install -r /tmp/overrides.txt; fi
+
+# The official python image ships a CycloneDX SBOM for pip's *vendored*
+# dependencies (site-packages/pip/_vendor/bom.cdx.json). Scanners (trivy,
+# artifacthub) treat every listed component as an installed package,
+# producing false positives - e.g. the copy of setuptools (70.3.0) pip
+# vendors internally is reported as CVE-2025-47273 even though the
+# actually installed packages come from requirements_pip.txt. The file is
+# pure metadata that pip does not use at runtime, so remove it to keep
+# scans limited to what is really installed.
+#
+# This must run AFTER the pip upgrade above: upgrading pip re-copies the
+# SBOM alongside the new version, so deleting it before the upgrade
+# would leave the image dirty again.
+RUN find /usr/local/lib -name bom.cdx.json -path "*/pip/_vendor/*" -delete
 
 # Remove npm component trees bundled with the jupyterhub wheel. Nodejs is not
 # installed, the sidecar only serves/reads static/images, and the moment

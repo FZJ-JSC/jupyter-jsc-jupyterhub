@@ -60,19 +60,21 @@ check-requirements:
   stage: check
   image: python:3.12-slim
   needs: []
+  # Advisory on purpose (allow_failure everywhere): the check compares the
+  # frozen pins against LIVE PyPI / the upstream lock file, i.e. a moving
+  # target. A new upstream release (e.g. a fresh jupyter-jsc-custom patch)
+  # would turn this job red on every open MR by the mere passage of time -
+  # "a newer version exists" is not a defect of the MR; the drift is picked
+  # up by the next run of the accumulating update MR. The hard merge gates
+  # are the build jobs (build-test, build-test-sidecar), enforced via the
+  # protected-branch rule "pipelines must be successful" (see README).
+  allow_failure: true
   script:
     - python check-requirements.py
   rules:
-    # Blocking in merge request pipelines: an MR may only be merged while it
-    # is drift-free (enforced together with the protected-branch rule
-    # "pipelines must be successful" on main - see README). In scheduled /
-    # manual pipelines it stays advisory: drift is normal there and is
-    # handled by the accumulating update MR.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "schedule"
-      allow_failure: true
     - when: manual
-      allow_failure: true
 
 # Weekly / manual refresh of the jjsc section of requirements_upstream.txt
 # and of the sidecar's pinned alpine packages (sidecar/requirements_apk.txt).

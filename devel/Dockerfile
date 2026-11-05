@@ -16,7 +16,7 @@
 #   docker build -f devel/Dockerfile \
 #       --build-arg BASE_IMAGE=<registry>/jupyterjsc/k8s/images/jhub:latest \
 #       -t devel .
-ARG BASE_IMAGE=gitlab.jsc.fz-juelich.de/jupyterjsc/k8s/images/jhub:latest
+ARG BASE_IMAGE=registry.jsc.fz-juelich.de/jupyterjsc/k8s/images/jhub:latest
 FROM ${BASE_IMAGE}
 
 USER root

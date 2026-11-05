@@ -60,19 +60,26 @@ check-requirements:
   stage: check
   image: python:3.12-slim
   needs: []
-  allow_failure: true
   script:
     - python check-requirements.py
   rules:
+    # Blocking in merge request pipelines: an MR may only be merged while it
+    # is drift-free (enforced together with the protected-branch rule
+    # "pipelines must be successful" on main - see README). In scheduled /
+    # manual pipelines it stays advisory: drift is normal there and is
+    # handled by the accumulating update MR.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "schedule"
+      allow_failure: true
     - when: manual
+      allow_failure: true
 
-# Weekly / manual refresh of the jjsc section of requirements_upstream.txt.
-# Runs the repo's update-requirements.sh (no-docker path inside the py3.14
-# image) and, if the frozen jjsc section drifted, pushes a branch and keeps
-# a single accumulating merge request up to date: its description carries
-# the report of the pin changes (was -> now, see update-requirements.sh).
+# Weekly / manual refresh of the jjsc section of requirements_upstream.txt
+# and of the sidecar's pinned alpine packages (sidecar/requirements_apk.txt).
+# Runs update-requirements.sh + update-apk.py (no-docker path inside the
+# py3.14 image) and, if anything drifted, pushes a branch and keeps a single
+# accumulating merge request up to date: its description carries the report
+# of the pin changes (was -> now).
 update-requirements:
   stage: update
   image: python:3.14-trixie
@@ -84,12 +91,16 @@ update-requirements:
       when: manual
   script:
     - ./update-requirements.sh --yes
+    # Refresh the sidecar's pinned alpine packages in the same job/branch/MR:
+    # revision re-releases and updates within the pinned leading version are
+    # applied, new leading versions are only reported (see update-apk.py).
+    - python3 update-apk.py --yes
     - |
       # Capture the diff separately: if git fails, the empty output of the
       # command substitution must not be mistaken for "nothing changed".
-      # (The check is scoped to requirements_upstream.txt on purpose: the
-      # report file written by update-requirements.sh is git-ignored.)
-      if ! CHANGED="$(git diff --name-only -- requirements_upstream.txt)"; then
+      # (The check is scoped to the two requirements files on purpose: the
+      # report file written by the update scripts is git-ignored.)
+      if ! CHANGED="$(git diff --name-only -- requirements_upstream.txt sidecar/requirements_apk.txt)"; then
         echo "error: git diff failed" >&2
         exit 1
       fi
@@ -106,8 +117,8 @@ update-requirements:
       git config user.name "GitLab CI"
       git config user.email "gitlab-ci@localhost"
       git checkout -B "$BRANCH"
-      git add requirements_upstream.txt
-      git commit -m "chore: refresh jjsc requirements section" -m "Automated by the scheduled update-requirements job."
+      git add requirements_upstream.txt sidecar/requirements_apk.txt
+      git commit -m "chore: refresh requirements (jjsc section + sidecar apk)" -m "Automated by the scheduled update-requirements job."
       # The default CI origin authenticates with the read-only CI_JOB_TOKEN,
       # so it cannot push. Push explicitly with the project access token
       # GL_TOKEN instead - for a project token any non-blank username works.

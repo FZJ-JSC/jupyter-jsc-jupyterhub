@@ -309,13 +309,13 @@ httpx==0.28.1
 jsonformatter==0.3.4
     # via jupyter-jsc-custom
 
-jupyter-jsc-custom==2.5.12
+jupyter-jsc-custom==2.5.13
     # via -r unfrozen/requirements-jsc.txt
 
 jupyterhub-credit-service==0.4.2
     # via -r unfrozen/requirements-jsc.txt
 
-jupyterhub-forwardbasespawner==2.1.2
+jupyterhub-forwardbasespawner==2.1.3
     # via
     #   -r unfrozen/requirements-jsc.txt
     #   jupyter-jsc-custom
@@ -330,7 +330,7 @@ jupyterhub-outpostspawner==2.2.13
 jupyterhub-traefik-proxy==2.1.0
     # via jupyter-jsc-custom
 
-jupyterhub-unicorespawner==2.1.7
+jupyterhub-unicorespawner==2.1.8
     # via
     #   -r unfrozen/requirements-jsc.txt
     #   jupyter-jsc-custom

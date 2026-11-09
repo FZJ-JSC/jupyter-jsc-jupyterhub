@@ -185,7 +185,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR} \
 #    cloned+patched source always matches the jupyterhub pin in
 #    requirements_upstream.txt; the default keeps local builds working
 #    without the arg.
-ARG JUPYTERHUB_VERSION=6.1.1
+ARG JUPYTERHUB_VERSION=6.2.0
 ENV JUPYTERHUB_VERSION=${JUPYTERHUB_VERSION}
 COPY ./patches/patch_files /src/patches/patch_files
 COPY ./patches/install_patches.sh /src/patches/install_patches.sh

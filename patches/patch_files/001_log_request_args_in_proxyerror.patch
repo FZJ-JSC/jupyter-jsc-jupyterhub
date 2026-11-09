@@ -1,13 +1,13 @@
 diff -Naurx .git -x node_modules -x share -x __pycache__ ../jupyterhub/jupyterhub/handlers/pages.py ../jupyterhub-patched/jupyterhub/handlers/pages.py
---- ../jupyterhub/jupyterhub/handlers/pages.py	2026-10-23 19:58:26.484911722 +0200
-+++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2026-10-23 20:00:39.797437729 +0200
-@@ -814,7 +814,8 @@
+--- ../jupyterhub/jupyterhub/handlers/pages.py	2026-11-09 10:20:59.844285992 +0100
++++ ../jupyterhub-patched/jupyterhub/handlers/pages.py	2026-11-09 10:16:56.570572042 +0100
+@@ -814,8 +814,7 @@
          try:
              html = await self.render_template(f'{status_code}.html', **ns)
          except TemplateNotFound:
--            self.log.debug("Using default error template for %d", status_code)
-+            request_args = self.request.arguments
-+            self.log.debug("Using default error template for %d - request_args: %s", status_code, request_args)
+-            request_args = self.request.arguments
+-            self.log.debug("Using default error template for %d - request_args: %s", status_code, request_args)
++            self.log.debug("Using default error template for %d", status_code)
              html = await self.render_template('error.html', **ns)
  
          self.write(html)

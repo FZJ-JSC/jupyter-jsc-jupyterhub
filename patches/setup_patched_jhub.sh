@@ -17,12 +17,6 @@ if [[ -d ${DIR}/${1}/jupyterhub-patched ]]; then
 fi
 git clone -b ${1} https://github.com/jupyterhub/jupyterhub.git ${DIR}/${1}/jupyterhub
 
-for f in `ls ${DIR}/patch_files/*.patch`
-do
-    PATCHNAME=$(basename $f)
-    echo $PATCHNAME
-    patch -d ${DIR}/${1} -p1 < $f
-    # echo "patch -d ${DIR}/${1} -p1 < $f"
-done
-
 cp -rp ${DIR}/${1}/jupyterhub ${DIR}/${1}/jupyterhub-patched
+mkdir ${DIR}/${1}/patch_files
+cp ${DIR}/create_patch_file.sh ${DIR}/${1}/.

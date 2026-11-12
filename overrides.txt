@@ -22,3 +22,8 @@
 #
 # Keep this file empty otherwise: while it is empty, the images are built
 # exactly from the frozen requirements.
+cachetools==8.0.0
+jupyterhub-kubespawner==7.2.0
+jupyterhub-nativeauthenticator==1.4.0
+oauthenticator==17.5.0
+pymysql==1.2.4

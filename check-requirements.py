@@ -11,7 +11,7 @@ Compares the frozen requirements file against the things it tracks:
   3. sidecar/requirements_pip.txt — must track the main file's versions;
   4. overrides.txt — pins that deliberately deviate from the frozen file
      (e.g. a CVE fix ahead of upstream); warns once the frozen file has
-     caught up and the override can be removed again.
+     caught up or upstream has caught up and the frozen file can be updated.
 
 Exits 1 when drift is detected (CI pairs that with allow_failure, so the
 pipeline is not blocked); run it from anywhere, it locates the files
@@ -158,9 +158,13 @@ if SIDECAR.exists():
 # Every pin in overrides.txt is a deliberate deviation from the frozen file
 # (e.g. a CVE fix that upstream has not shipped yet). Once the frozen file
 # has caught up to (or past) the overridden version, the override is just
-# drift and should be deleted again.
+# drift and should be deleted again. If upstream has caught up first, the
+# frozen file must be updated before removing the override.
 def vkey(v: str) -> tuple[int, ...]:
-    return tuple(int(p) for p in re.findall(r"\d+", v)) or (0,)
+    parts = tuple(int(p) for p in re.findall(r"\d+", v)) or (0,)
+    while len(parts) > 1 and parts[-1] == 0:
+        parts = parts[:-1]
+    return parts
 
 
 if OVERRIDES.exists():
@@ -171,18 +175,18 @@ if OVERRIDES.exists():
         name = re.sub(r"[-_]+", "-", m.group(1)).lower()
         ovr_ver = m.group(2)
         frozen_pin = main_all.get(name)
-        if frozen_pin is not None:
-            if vkey(frozen_pin.split("==")[1]) >= vkey(ovr_ver):
-                warnings.append(
-                    f"overrides.txt: {name}=={ovr_ver} can be removed - "
-                    f"the frozen file is already at {frozen_pin.split('==')[1]}"
-                )
+        if frozen_pin is not None and vkey(frozen_pin.split("==")[1]) >= vkey(ovr_ver):
+            warnings.append(
+                f"overrides.txt: {name}=={ovr_ver} can be removed - "
+                f"the frozen file is already at {frozen_pin.split('==')[1]}"
+            )
         elif upstream_pins:
             up_pin = upstream_pins.get(name)
             if up_pin is not None and vkey(up_pin.split("==")[1]) >= vkey(ovr_ver):
                 warnings.append(
-                    f"overrides.txt: {name}=={ovr_ver} can be removed - "
-                    f"upstream z2jh is already at {up_pin.split('==')[1]}"
+                    f"overrides.txt: {name}=={ovr_ver} - upstream z2jh is "
+                    f"already at {up_pin.split('==')[1]}; merge the upstream "
+                    "pin before removing the override"
                 )
 
 

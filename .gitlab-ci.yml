@@ -76,8 +76,8 @@ check-requirements:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - when: manual
 
-# Weekly / manual refresh of the jjsc section of requirements_upstream.txt
-# and of the sidecar's pinned alpine packages (sidecar/requirements_apk.txt).
+# Scheduled or manual default-branch refresh of the upstream and jjsc Python
+# requirements and the sidecar's Python and alpine package pins.
 # Runs update-requirements.sh + update-apk.py (no-docker path inside the
 # py3.14 image) and, if anything drifted, pushes a branch and keeps a single
 # accumulating merge request up to date: its description carries the report
@@ -87,11 +87,11 @@ update-requirements:
   image: python:3.14-trixie
   needs: []
   rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
   script:
+    - python3 -m unittest discover -s tests -p 'test_update_requirements.py'
     - ./update-requirements.sh --yes
     # Refresh the sidecar's pinned alpine packages in the same job/branch/MR:
     # revision re-releases and updates within the pinned leading version are
@@ -100,9 +100,9 @@ update-requirements:
     - |
       # Capture the diff separately: if git fails, the empty output of the
       # command substitution must not be mistaken for "nothing changed".
-      # (The check is scoped to the two requirements files on purpose: the
+      # (The check is scoped to the requirements files on purpose: the
       # report file written by the update scripts is git-ignored.)
-      if ! CHANGED="$(git diff --name-only -- requirements_upstream.txt sidecar/requirements_apk.txt)"; then
+      if ! CHANGED="$(git diff --name-only -- requirements_upstream.txt sidecar/requirements_pip.txt sidecar/requirements_apk.txt)"; then
         echo "error: git diff failed" >&2
         exit 1
       fi
@@ -119,8 +119,8 @@ update-requirements:
       git config user.name "GitLab CI"
       git config user.email "gitlab-ci@localhost"
       git checkout -B "$BRANCH"
-      git add requirements_upstream.txt sidecar/requirements_apk.txt
-      git commit -m "chore: refresh requirements (jjsc section + sidecar apk)" -m "Automated by the scheduled update-requirements job."
+      git add requirements_upstream.txt sidecar/requirements_pip.txt sidecar/requirements_apk.txt
+      git commit -m "chore: refresh upstream, jjsc and sidecar requirements" -m "Automated by the scheduled update-requirements job."
       # The default CI origin authenticates with the read-only CI_JOB_TOKEN,
       # so it cannot push. Push explicitly with the project access token
       # GL_TOKEN instead - for a project token any non-blank username works.

@@ -1,27 +1,26 @@
 #!/usr/bin/env bash
 #
-# update-requirements.sh — refresh the jjsc section of requirements_upstream.txt
+# update-requirements.sh — refresh upstream, jjsc, and sidecar Python pins
 #
 # Usage:
 #   ./update-requirements.sh          dry run: print what would change
 #   ./update-requirements.sh --yes    apply the changes
 #
 # How it works:
-#   1. Runs pip-compile (pip-tools) in a python:3.14-trixie environment with
+#   1. Fetches the upstream z2jh hub lock file (REQUIREMENTS_BASE_URL can
+#      override its URL), then runs pip-compile in a python:3.14-trixie environment with
 #      (in a docker container if docker is available, otherwise in the local
 #      python — which is what the GitLab CI image is),
 #        input        = unfrozen/requirements-jsc.txt (loose jjsc pins)
-#        constraints  = the upstream block of requirements_upstream.txt
+#        constraints  = the freshly fetched upstream lock file
 #      so shared packages (requests, certifi, ...) keep the upstream versions —
 #      no drift — and only packages that are genuinely new for jjsc get fresh
 #      versions. If jjsc ever requires a version newer than an upstream pin,
-#      pip-compile fails loudly: update the upstream block first.
-#   2. Replaces everything between the "# --- jjsc customizations" separator
-#      and the "# Pinned manually" footer with the compiled entries. The
-#      upstream block and the setuptools footer are kept byte-identical.
-#   3. When the section changed, writes a markdown report of the pin
-#      changes (was -> now) to requirements-update-report.md. The CI job
-#      uses it as the merge request description (see create-mr.py).
+#      pip-compile fails loudly without modifying the requirements.
+#   2. Rebuilds the upstream and jjsc sections, retains the manual footer,
+#      and synchronizes the sidecar's existing Python pins with the hub.
+#   3. Writes a markdown report of pin changes to requirements-update-report.md.
+#      The CI job uses it as the merge request description (see create-mr.py).
 #
 # See also check-requirements.py (standalone drift check, used by CI).
 
@@ -30,6 +29,8 @@ cd "$(dirname "$0")"
 
 REQ=requirements_upstream.txt
 UNFROZEN=unfrozen/requirements-jsc.txt
+SIDECAR=sidecar/requirements_pip.txt
+UPSTREAM_URL=${REQUIREMENTS_BASE_URL:-https://raw.githubusercontent.com/jupyterhub/zero-to-jupyterhub-k8s/main/images/hub/requirements.txt}
 # Markdown report of the pin changes (was -> now), used as the merge request
 # description (see create-mr.py).
 REPORT_FILE=${REPORT_FILE:-requirements-update-report.md}
@@ -51,12 +52,30 @@ if ! command -v docker >/dev/null; then
     echo "no docker — running pip-compile with the local python 3.14"
 fi
 
-# 1) Stage inputs. The jjsc input keeps its canonical path so the generated
-#    "# via -r unfrozen/requirements-jsc.txt" comments match, and the
-#    constraints file is the upstream block (everything above the separator).
+# 1) Fetch and validate the upstream lock before compiling. Do not write any
+#    tracked file until all generated outputs have been checked.
 mkdir -p "$WORK/unfrozen"
 cp "$UNFROZEN" "$WORK/unfrozen/"
-awk '/^# --- jjsc customizations/{exit} {print}' "$REQ" > "$WORK/constraints.txt"
+python3 - "$UPSTREAM_URL" "$WORK/constraints.txt" <<'PY'
+import re
+import sys
+import urllib.request
+from pathlib import Path
+
+url, destination = sys.argv[1:]
+text = urllib.request.urlopen(url, timeout=30).read().decode("utf-8")
+names = []
+for line in text.splitlines():
+    if not line.strip() or line.lstrip().startswith("#"):
+        continue
+    match = re.fullmatch(r"([A-Za-z0-9._-]+)==([^\s#]+)(?:\s+#.*)?", line)
+    if not match:
+        raise SystemExit(f"invalid line in upstream requirements: {line!r}")
+    names.append(re.sub(r"[-_.]+", "-", match.group(1)).lower())
+if "jupyterhub" not in names or len(names) != len(set(names)):
+    raise SystemExit("invalid upstream requirements: missing jupyterhub or duplicate pins")
+Path(destination).write_text(text)
+PY
 
 # 2) Compile. PyPI is occasionally flaky — retry once.
 if command -v docker >/dev/null; then
@@ -99,23 +118,27 @@ else
     fi
 fi
 
-# 3) Rebuild: verbatim upstream block + compiled jjsc section + verbatim footer.
-python3 - "$REQ" "$WORK/compiled.txt" > "$WORK/newfile" <<'PY'
+# 3) Rebuild: fetched upstream block + compiled jjsc section + original footer.
+python3 - "$REQ" "$WORK/constraints.txt" "$WORK/compiled.txt" > "$WORK/newfile" <<'PY'
 import re
 import sys
 
-req_path, compiled_path = sys.argv[1], sys.argv[2]
+req_path, upstream_path, compiled_path = sys.argv[1:]
 text = open(req_path).read()
 lines = text.splitlines()
 
 sep = next(i for i, l in enumerate(lines) if l.startswith("# --- jjsc"))
 end = next(i for i, l in enumerate(lines) if l.startswith("# Pinned manually"))
-upstream, footer = lines[:sep + 1], lines[end:]
+upstream = open(upstream_path).read().rstrip().splitlines()
+footer = lines[end:]
 
 def norm(name):
-    return re.sub(r"[-_]+", "-", name).lower()
+    return re.sub(r"[-_.]+", "-", name).lower()
 
-upstream_names = {norm(l.split("==")[0]) for l in upstream if "==" in l}
+upstream_names = {norm(l.split("==")[0]) for l in upstream if "==" in l and not l.lstrip().startswith("#")}
+footer_names = {norm(l.split("==")[0]) for l in footer if "==" in l and not l.lstrip().startswith("#")}
+if upstream_names & footer_names:
+    raise SystemExit(f"upstream pins conflict with manual footer: {', '.join(sorted(upstream_names & footer_names))}")
 
 # compiled.txt -> normalized name -> [raw_name, version, via-list]
 entries, cur = {}, None
@@ -153,25 +176,51 @@ for n in sorted(entries):
     blocks.append(block)
 
 sys.stdout.write(
-    "\n".join(upstream) + "\n\n"
+    "\n".join(upstream) + "\n\n" + lines[sep] + "\n\n"
     + "\n\n".join(blocks) + "\n\n\n"
     + "\n".join(footer) + "\n"
 )
 PY
 
-if diff -u "$REQ" "$WORK/newfile" > "$WORK/changes.diff"; then
-    echo "no changes — the jjsc section is already up to date."
-else
-    cat "$WORK/changes.diff"
-    # Markdown report of the pin changes (was -> now). Written before the mv
-    # below, so $REQ is still the "was" side. CI passes it to create-mr.py
-    # as the merge request description.
-    python3 - "$REQ" "$WORK/newfile" "$REPORT_FILE" <<'PY'
+# 4) Match sidecar pins to the newly generated hub requirements.
+python3 - "$WORK/newfile" "$SIDECAR" "$WORK/sidecar.txt" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+hub_path, sidecar_path, destination = map(Path, sys.argv[1:])
+pattern = re.compile(r"^([A-Za-z0-9._-]+)==([^\s#]+)(.*)$")
+def norm(name):
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+hub = {}
+for line in hub_path.read_text().splitlines():
+    match = pattern.match(line)
+    if match:
+        name = norm(match.group(1))
+        if name in hub:
+            raise SystemExit(f"duplicate pin in generated hub requirements: {name}")
+        hub[name] = match.group(2)
+lines = []
+for line in sidecar_path.read_text().splitlines(keepends=True):
+    match = pattern.match(line.rstrip("\n"))
+    if match:
+        name = norm(match.group(1))
+        if name not in hub:
+            raise SystemExit(f"sidecar pin missing from generated hub requirements: {name}")
+        newline = "\n" if line.endswith("\n") else ""
+        line = f"{match.group(1)}=={hub[name]}{match.group(3)}{newline}"
+    lines.append(line)
+destination.write_text("".join(lines))
+PY
+
+# Always create a fresh report, even when only the apk updater changes pins.
+python3 - "$REQ" "$WORK/newfile" "$SIDECAR" "$WORK/sidecar.txt" "$REPORT_FILE" <<'PY'
 import re
 import sys
 from datetime import datetime, timezone
 
-old_path, new_path, report_path = sys.argv[1], sys.argv[2], sys.argv[3]
+old_path, new_path, old_sidecar, new_sidecar, report_path = sys.argv[1:]
 
 
 def pins(path):
@@ -180,18 +229,26 @@ def pins(path):
     for line in open(path):
         m = re.match(r"^([A-Za-z0-9._\[\]-]+)==(.+)$", line)
         if m:
-            out[re.sub(r"[-_]+", "-", m.group(1)).lower()] = (m.group(1), m.group(2))
+            out[re.sub(r"[-_.]+", "-", m.group(1)).lower()] = (m.group(1), m.group(2))
     return out
 
 
-old, new = pins(old_path), pins(new_path)
-rows = [
-    [new[n][0], old[n][1], new[n][1]]
-    for n in sorted(set(old) & set(new))
-    if old[n][1] != new[n][1]
-]
-rows += [[new[n][0], "-", new[n][1]] for n in sorted(set(new) - set(old))]
-rows += [[old[n][0], old[n][1], "-"] for n in sorted(set(old) - set(new))]
+def section(title, old_path, new_path):
+    old, new = pins(old_path), pins(new_path)
+    rows = [
+        [new[n][0], old[n][1], new[n][1]]
+        for n in sorted(set(old) & set(new))
+        if old[n][1] != new[n][1]
+    ]
+    rows += [[new[n][0], "-", new[n][1]] for n in sorted(set(new) - set(old))]
+    rows += [[old[n][0], old[n][1], "-"] for n in sorted(set(old) - set(new))]
+    lines = [f"## {title}", ""]
+    if rows:
+        lines += ["| package | was | now |", "|---|---|---|"]
+        lines += [f"| {n} | {o} | {w} |" for n, o, w in rows]
+    else:
+        lines.append("_no pin changes_")
+    return lines + [""]
 
 L = [
     "# Requirements update report - "
@@ -201,26 +258,36 @@ L = [
     "accumulates updates over time - merge when you need them (e.g. due to "
     "a CVE).",
     "",
-    "Changes to `requirements_upstream.txt` (the upstream block is kept "
-    "byte-identical to the z2jh lock file and not touched by this job):",
+    "The upstream block is refreshed from the z2jh lock file and the jjsc "
+    "section is recompiled against it. Review `overrides.txt` after merging "
+    "the updated pins; overrides are not removed automatically.",
     "",
-    "## Updated pins",
-    "",
-    "| package | was | now |",
-    "|---|---|---|",
 ]
-if rows:
-    L += [f"| {n} | {o} | {w} |" for n, o, w in rows]
-else:
-    L.append("_no pin changes - comment/via differences only_")
-L.append("")
+L += section("Hub Python pins (`requirements_upstream.txt`)", old_path, new_path)
+L += section("Sidecar Python pins (`sidecar/requirements_pip.txt`)", old_sidecar, new_sidecar)
 open(report_path, "w").write("\n".join(L))
 PY
-    echo "wrote $REPORT_FILE"
-    if $apply; then
-        mv "$WORK/newfile" "$REQ"
-        echo "updated $REQ"
+echo "wrote $REPORT_FILE"
+changed=false
+for pair in "$REQ:$WORK/newfile" "$SIDECAR:$WORK/sidecar.txt"; do
+    old=${pair%%:*}
+    new=${pair#*:}
+    if diff -u "$old" "$new"; then
+        continue
     else
-        echo "dry run — re-run with --yes to apply."
+        status=$?
+        if [[ $status -ne 1 ]]; then
+            exit "$status"
+        fi
+        changed=true
     fi
+done
+if $changed && $apply; then
+    cp "$WORK/newfile" "$REQ"
+    cp "$WORK/sidecar.txt" "$SIDECAR"
+    echo "updated $REQ and $SIDECAR"
+elif $changed; then
+    echo "dry run — re-run with --yes to apply."
+else
+    echo "no Python requirements changes."
 fi

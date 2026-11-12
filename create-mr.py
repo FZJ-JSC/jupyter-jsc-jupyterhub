@@ -74,7 +74,7 @@ def main() -> int:
         {
             "source_branch": branch,
             "target_branch": os.environ.get("CI_DEFAULT_BRANCH", "main"),
-            "title": "chore: refresh jjsc requirements section",
+            "title": "chore: refresh upstream, jjsc and sidecar requirements",
             "description": description
             or "Automated requirements refresh (report missing, see pipeline log).",
             "labels": ["requirements-update"],

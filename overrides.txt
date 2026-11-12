@@ -16,9 +16,9 @@
 #      dependency fails the hub build - add that dependency to this file as
 #      well; every line here is an explicit deviation from the upstream lock
 #      file.
-#   3. Once the frozen file has caught up to (or past) the overridden
-#      version - check-requirements.py tells you when that is the case -
-#      merge the upstream block and delete the line again.
+#   3. Once upstream has caught up to (or past) the overridden version,
+#      check-requirements.py reports it. Merge the upstream block into the
+#      frozen file before deleting the override line.
 #
 # Keep this file empty otherwise: while it is empty, the images are built
 # exactly from the frozen requirements.

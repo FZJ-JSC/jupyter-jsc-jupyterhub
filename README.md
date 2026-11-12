@@ -5,8 +5,9 @@ It is based on the official jupyterhub/k8s-hub image, but installs a few extra p
 
 ## Requirements updates and merge requests
 
-- The scheduled `update-requirements` CI job fetches the latest upstream hub
-  lock file, recompiles the jjsc section against it, and synchronizes the
+- The `update-requirements` CI job runs on default-branch schedules or manually
+  from a default-branch pipeline, not on merge request pipelines. It fetches
+  the latest upstream hub lock file, recompiles the jjsc section against it, and synchronizes the
   sidecar's Python pins (`update-requirements.sh`). It also refreshes the sidecar's
   pinned alpine packages (`update-apk.py`, same version policy as the
   jupyterhub-outpost image: in-series updates and revision re-releases are

@@ -76,8 +76,8 @@ check-requirements:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - when: manual
 
-# Weekly / manual refresh of the upstream and jjsc Python requirements and
-# the sidecar's Python and alpine package pins.
+# Scheduled or manual default-branch refresh of the upstream and jjsc Python
+# requirements and the sidecar's Python and alpine package pins.
 # Runs update-requirements.sh + update-apk.py (no-docker path inside the
 # py3.14 image) and, if anything drifted, pushes a branch and keeps a single
 # accumulating merge request up to date: its description carries the report
@@ -87,9 +87,8 @@ update-requirements:
   image: python:3.14-trixie
   needs: []
   rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
   script:
     - python3 -m unittest discover -s tests -p 'test_update_requirements.py'

@@ -309,7 +309,7 @@ httpx==0.28.1
 jsonformatter==0.3.4
     # via jupyter-jsc-custom
 
-jupyter-jsc-custom==2.5.15
+jupyter-jsc-custom==2.5.16
     # via -r unfrozen/requirements-jsc.txt
 
 jupyterhub-credit-service==0.4.2

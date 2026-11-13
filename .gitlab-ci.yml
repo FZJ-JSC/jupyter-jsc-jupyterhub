@@ -7,9 +7,11 @@ stages:
 # One-click release: after you approve + merge the update PR (or after any
 # change on the default branch), run this job manually. It reads the base
 # JupyterHub version, computes the next <base>-post.<N> tag against the
-# remote, and pushes the tag on the exact commit. Pushing the tag
-# automatically triggers the build-tag job (separate tag pipeline),
-# which builds + pushes the hub and sidecar images under that tag.
+# remote, and pushes the tag(s) on the exact commit. If the base version
+# has no -post release yet, the plain <base> tag is created alongside
+# <base>-post.1 (unless it exists already). Pushing the tag(s)
+# automatically triggers the build-tags job (separate tag pipeline),
+# which builds + pushes the hub and sidecar images under each tag.
 #
 # All jobs in this pipeline use `needs: []` (DAG model) on purpose: in the
 # default stage model a pending MANUAL job blocks every later stage, which
@@ -27,19 +29,38 @@ tag-release:
     - BASE=$(grep -E '^jupyterhub==' requirements_upstream.txt | sed 's/^jupyterhub==//')
     - "echo base version: $BASE"
     - |
+      # Highest existing BASE-post.i; empty if this base version has no
+      # post releases yet. `|| true`: a grep with no match must not kill
+      # the job via set -o pipefail - "no posts yet" is the normal state
+      # for a fresh base version.
       LATEST=$(git ls-remote --tags origin "${BASE}-post.*" \
         | sed 's|.*refs/tags/||' \
         | grep -oE 'post\.[0-9]+$' \
         | grep -oE '[0-9]+$' \
-        | sort -n | tail -1)
-      NEXT=$(( ${LATEST:-0} + 1 ))
-      TAG="${BASE}-post.${NEXT}"
-      echo "latest ${BASE}-post.* tag: ${LATEST:-<none>}  ->  next: ${TAG}"
-      test -n "$(git ls-remote --tags origin "refs/tags/$TAG" 2>/dev/null)" && \
-        { echo "tag $TAG already exists" >&2; exit 1; }
+        | sort -n | tail -1 || true)
+      if [[ -z "$LATEST" ]]; then
+        # First release of this base version: create the plain BASE tag
+        # (unless it exists already) and the first post release.
+        if [[ -z "$(git ls-remote --tags origin "refs/tags/$BASE" 2>/dev/null)" ]]; then
+          TAGS=("$BASE" "${BASE}-post.1")
+        else
+          TAGS=("${BASE}-post.1")
+        fi
+      else
+        TAGS=("${BASE}-post.$(( LATEST + 1 ))")
+      fi
+      echo "latest ${BASE}-post.* tag: ${LATEST:-<none>}  ->  next: ${TAGS[*]}"
+      for TAG in "${TAGS[@]}"; do
+        if [[ -n "$(git ls-remote --tags origin "refs/tags/$TAG" 2>/dev/null)" ]]; then
+          echo "tag $TAG already exists" >&2
+          exit 1
+        fi
+      done
       git config user.name "GitLab CI"
       git config user.email "gitlab-ci@localhost"
-      git tag -a "$TAG" -m "jhub release ${TAG} (base ${BASE})" "${CI_COMMIT_SHA}"
+      for TAG in "${TAGS[@]}"; do
+        git tag -a "$TAG" -m "jhub release ${TAG} (base ${BASE})" "${CI_COMMIT_SHA}"
+      done
       test -n "${GL_TOKEN:-}" || { echo "error: GL_TOKEN (project access token) is required - it needs BOTH the api and write_repository scopes" >&2; exit 1; }
       ORIGIN=$(git remote get-url origin)
       HOSTPATH=${ORIGIN#*://}   # drop scheme -> gitlab-ci-token:***@host/path
@@ -47,14 +68,14 @@ tag-release:
       PUSH_URL="https://ci-bot:${GL_TOKEN}@${HOSTPATH}"
       # Push via a temp file and scrub the token from git's output: on a
       # failed push git prints the full URL (token included) into the log.
-      if ! git push "$PUSH_URL" "$TAG" > /tmp/push.out 2>&1; then
+      if ! git push "$PUSH_URL" "${TAGS[@]}" > /tmp/push.out 2>&1; then
         sed "s/${GL_TOKEN}/REDACTED/g" /tmp/push.out >&2
         echo "error: git push failed" >&2
         exit 1
       fi
       sed "s/${GL_TOKEN}/REDACTED/g" /tmp/push.out
       rm -f /tmp/push.out
-      echo "released tag: $TAG  (build-tag job will now build + push the images)"
+      echo "released tag(s): ${TAGS[*]}  (build-tags job will now build + push the images)"
 
 check-requirements:
   stage: check
